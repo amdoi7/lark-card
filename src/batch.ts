@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { link, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { parseCard } from './card-input';
-import { render, type PreviewOptions } from './core';
+import { parseCard } from './card/input.ts';
+import { asCardError, CardError, type ErrorCode } from './errors.ts';
+import { render, type RenderOptions } from './preview/render.ts';
 
 type BatchResult = {
   input: string;
@@ -11,10 +12,10 @@ type BatchResult = {
   output: string;
   status: 'pending' | 'ok' | 'error';
   warnings: unknown[];
-  error?: { code: string; message: string };
+  error?: { code: ErrorCode; message: string };
 };
 
-export async function renderBatch(inputs: string[], directory: string, options: PreviewOptions) {
+export async function renderBatch(inputs: string[], directory: string, options: RenderOptions) {
   await mkdir(directory, { recursive: true });
   const manifestPath = join(directory, 'manifest.json');
   const temporary = join(directory, `.manifest-${randomUUID()}.tmp`);
@@ -24,18 +25,19 @@ export async function renderBatch(inputs: string[], directory: string, options: 
     status: 'pending', warnings: [],
   })));
   const manifest = { results };
-  async function save(initial = false) {
+  // 'create' fails if a manifest already exists; 'replace' swaps in a new snapshot atomically.
+  async function writeManifest(mode: 'create' | 'replace') {
     await writeFile(temporary, JSON.stringify(manifest) + '\n', { flag: 'wx' });
     try {
-      if (initial) await link(temporary, manifestPath);
+      if (mode === 'create') await link(temporary, manifestPath);
       else await rename(temporary, manifestPath);
     } finally {
       await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; });
     }
   }
-  try { await save(true); }
+  try { await writeManifest('create'); }
   catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw Object.assign(Error(`Batch manifest already exists: ${manifestPath}`), { code: 'batch_output_exists' });
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new CardError('batch_output_exists', `Batch manifest already exists: ${manifestPath}`);
     throw error;
   }
   for (const result of results) {
@@ -46,11 +48,11 @@ export async function renderBatch(inputs: string[], directory: string, options: 
       await writeFile(result.output, preview.png, { flag: 'wx' });
       result.status = 'ok';
     } catch (error) {
-      const failure = error as Error & { code?: string };
+      const failure = asCardError(error, 'render_failed');
       result.status = 'error';
-      result.error = { code: failure.code ?? 'render_failed', message: failure.message };
+      result.error = { code: failure.code, message: failure.message };
     }
-    await save();
+    await writeManifest('replace');
   }
   return manifest;
 }

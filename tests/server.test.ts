@@ -4,10 +4,10 @@ import { get } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startPreview } from '../runtime/serve.ts';
+import { startPreviewServer } from '../src/preview/server.ts';
 
 test('editor binds locally and rejects cross-origin compilation', async () => {
-  const server = await startPreview({ port: 0 });
+  const server = await startPreviewServer({ port: 0 });
   try {
     const page = await fetch(server.url + '/');
     expect(page.status).toBe(200);
@@ -21,8 +21,8 @@ test('editor binds locally and rejects cross-origin compilation', async () => {
     });
     expect(hostStatus).toBe(403);
     expect((await fetch(server.url + '/vendor/other/file.js')).status).toBe(404);
-    expect((await fetch(server.url + '/editor.ts')).status).toBe(404);
-    const inspector = await fetch(server.url + '/inspect-cardkit.js');
+    expect((await fetch(server.url + '/browser/editor-registry.d.ts')).status).toBe(404);
+    const inspector = await fetch(server.url + '/browser/inspect-cardkit.ts');
     expect(inspector.status).toBe(200);
     expect(inspector.headers.get('content-type')).toContain('text/javascript');
     expect(await inspector.text()).toContain('simulator_host_missing');
@@ -81,7 +81,7 @@ test('bun serve starts the editor and stops on SIGTERM', async () => {
 test('simulator starts without Lark client archives', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'lark-card-no-client-'));
   try {
-    const server = await startPreview({ port: 0, renderer: 'simulator', webcontent: directory });
+    const server = await startPreviewServer({ port: 0, renderer: 'simulator', webcontent: directory });
     try {
       expect((await fetch(server.url)).status).toBe(200);
       expect((await fetch(server.url + '/api/compile', {
@@ -101,14 +101,14 @@ test('rejects a malformed Lark archive before listening', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'lark-card-invalid-asar-'));
   try {
     await writeFile(join(directory, 'messenger.asar'), Buffer.alloc(12));
-    await expect(startPreview({ port: 0, renderer: 'client', webcontent: directory })).rejects.toThrow('asar_header_invalid');
+    await expect(startPreviewServer({ port: 0, renderer: 'client', webcontent: directory })).rejects.toMatchObject({ code: 'client_unavailable', message: expect.stringContaining('asar_header_invalid') });
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
 }, 30000);
 
 test('compiler preserves V1 and V2 schemas, localizes V1, and rejects failed components', async () => {
-  const server = await startPreview({ port: 0 });
+  const server = await startPreviewServer({ port: 0 });
   const compile = (card: unknown, locale = 'zh_cn') => fetch(server.url + '/api/compile', {
     method: 'POST',
     headers: { 'content-type': 'application/json', origin: server.url },
@@ -142,7 +142,7 @@ test('compiler preserves V1 and V2 schemas, localizes V1, and rejects failed com
 }, 30000);
 
 test('compiler preserves opaque chart data and resolves declared variables', async () => {
-  const server = await startPreview({ port: 0 });
+  const server = await startPreviewServer({ port: 0 });
   const compile = (card: unknown, variables: unknown[] = []) => fetch(server.url + '/api/compile', {
     method: 'POST',
     headers: { 'content-type': 'application/json', origin: server.url },
@@ -170,7 +170,7 @@ test('compiler preserves opaque chart data and resolves declared variables', asy
 }, 30000);
 
 test('migration preserves translations and requires consent for sharing changes', async () => {
-  const server = await startPreview({ port: 0 });
+  const server = await startPreviewServer({ port: 0 });
   const migrate = (card: unknown, allowShared = false) => fetch(server.url + '/api/migrate', {
     method: 'POST',
     headers: { 'content-type': 'application/json', origin: server.url },

@@ -1,11 +1,13 @@
 import { createHash } from 'node:crypto';
+import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { CardError } from '../errors.ts';
 
 export type EditorAsset = { file: string; url: string; route: string; kind: string; sha256: string };
 
-export async function prepareAsset(
+export async function ensureAsset(
   asset: { file: string; url: string; sha256: string },
   options: { timeout: number; downloadError(status: number): string; integrityError(target: string, actual: string): string },
 ) {
@@ -26,6 +28,17 @@ export async function prepareAsset(
 }
 
 export const cacheDirectory = process.env.LARK_CARD_CACHE || join(homedir(), '.cache', 'lark-card');
+
+// Path of a file that `bun run setup-assets` prepared; the only place that reports a missing cache.
+export function cachedAssetPath(file: string) {
+  const path = join(cacheDirectory, file);
+  if (!existsSync(path)) throw new CardError('assets_unavailable', `asset_cache_unavailable file=${file} action="bun run setup-assets"`);
+  return path;
+}
+
+export function readCachedAsset(file: string) {
+  return readFileSync(cachedAssetPath(file));
+}
 export const compilerVersion = 'CardKit 1.0.0.2738 / bd8f4d9746b374241e86a9beaf1a573b2981deab';
 export const remoteAssets = [
   {

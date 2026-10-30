@@ -1,9 +1,8 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parentPort, workerData } from 'node:worker_threads';
-import { cacheDirectory } from './assets.ts';
-import { cardError, transformNodes } from './input.ts';
+import { cachedAssetPath, readCachedAsset } from '../assets/cache.ts';
+import { transformNodes } from '../card/input.ts';
+import { CardError } from '../errors.ts';
 
 type CompilerGlobals = typeof globalThis & {
   Go: new () => { importObject: WebAssembly.Imports; run(instance: WebAssembly.Instance): Promise<void> };
@@ -24,18 +23,18 @@ const globals = globalThis as CompilerGlobals;
 try {
   console.log = () => {};
   Object.assign(globalThis, { window: globalThis });
-  await import(pathToFileURL(join(cacheDirectory, 'wasm_exec.js')).href);
+  await import(pathToFileURL(cachedAssetPath('wasm_exec.js')).href);
   const go = new globals.Go();
-  const bytes = await readFile(join(cacheDirectory, 'cardkit-parser.wasm'));
+  const bytes = readCachedAsset('cardkit-parser.wasm');
   const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
   go.run(instance).catch(error => {
     port.postMessage({ error: { code: 'compiler_runtime_failed', message: error.message } });
   });
-  const initialization: string[] = JSON.parse(await readFile(join(cacheDirectory, 'compiler-init.json'), 'utf8'));
+  const initialization: string[] = JSON.parse(readCachedAsset('compiler-init.json').toString());
   const injected = globals.injectWasm(...initialization);
   if (injected.error) throw Error(`compiler_initialization_failed: ${injected.error}`);
   const result = globals.parseUserDSL(JSON.stringify(workerData.card), JSON.stringify(workerData.variables), workerData.locale);
-  if (result.error) throw Object.assign(Error(result.error), { code: 'card_compile_failed' });
+  if (result.error) throw new CardError('card_compile_failed', result.error);
   if (!result.cardDsl || typeof result.cardDsl !== 'object') throw Error('compiler_output_invalid');
   if (result.cardDsl.schema !== workerData.card.schema) throw Error('compiler_schema_mismatch');
   const failures: CompilerFailure[] = [];
@@ -43,7 +42,7 @@ try {
     if (node.tag && node.errCode) failures.push({ path, tag: node.tag, code: node.errCode, message: node.errMessage });
     return node;
   });
-  if (failures.length) throw cardError('card_component_failed', '官方编译器返回失败组件，不能报告整卡成功', failures);
+  if (failures.length) throw new CardError('card_component_failed', '官方编译器返回失败组件，不能报告整卡成功', failures);
   port.postMessage({
     card: result.cardDsl,
     attachment: result.attachmentMeta,

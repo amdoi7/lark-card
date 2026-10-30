@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { compile, migrate, render } from '../src/core';
+import { compile, migrate, render } from '../src/index.ts';
 
 test('compiles a project without changing the source and resolves its variables', async () => {
   const project = {

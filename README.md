@@ -27,9 +27,9 @@ Linux may require additional system packages for Chromium. Playwright documents 
 
 ```sh
 bun src/cli.ts --help
-bun src/cli.ts compile runtime/sample.json > card-vr.json
-bun src/cli.ts render runtime/sample.json --platform pc -o card-pc.png
-bun src/cli.ts render runtime/sample.json --platform ios -o card-ios.png
+bun src/cli.ts compile examples/basic.card.json > card-vr.json
+bun src/cli.ts render examples/basic.card.json --platform pc -o card-pc.png
+bun src/cli.ts render examples/basic.card.json --platform ios -o card-ios.png
 bun src/cli.ts render-batch card-a.json card-b.json --output-dir previews
 bun src/cli.ts migrate legacy.json > card-v2.json
 cat legacy.json | bun src/cli.ts migrate - | bun src/cli.ts compile -
@@ -61,14 +61,33 @@ Check text clipping, button width, wrapping, visual hierarchy, and the distance 
 
 The Agent workflow is in `skills/lark-card/SKILL.md`.
 
+## Layout
+
+| Path | Owns |
+| --- | --- |
+| `src/cli.ts`, `src/serve.ts` | Thin entrypoints: parse argv, dispatch. |
+| `src/index.ts` | The single public API: `compile`, `migrate`, `render`. |
+| `src/errors.ts` | The closed set of error codes and their HTTP statuses. |
+| `src/card/` | Pure Card JSON rules: schema, locales, V1 → V2 conversion. No I/O. |
+| `src/compiler/` | Hosts the official CardKit WASM compiler in a worker. |
+| `src/assets/` | Pinned remote assets, cache, integrity checks and `setup-assets`. |
+| `src/preview/` | Loopback server, simulator and client renderers, preview warnings. |
+| `src/browser/` | Code that runs in the editor and preview pages. |
+| `examples/` | Sample cards served by the editor and used in this README. |
+
+## Errors
+
+Failures are JSON on stderr with a `code` from a closed set: `usage_invalid`, `locale_invalid`, `card_json_invalid`, `card_compile_failed`, `card_component_failed`, `migration_source_invalid`, `migration_requires_shared`, `migration_requires_manual`, `migration_locale_structure_mismatch`, `batch_output_exists`, `request_too_large`, `assets_unavailable` (run `bun run setup-assets`), `client_unavailable` (check `--webcontent` and the Lark installation), `compiler_timeout`, `compiler_runtime_failed`, `simulator_empty_card`, `simulator_render_failed`, `render_failed`. Any other failure is reported as `render_failed`. Branch on `code`, not on `message`.
+
 ## Verification
 
 ```sh
 bun run check
-bun test tests
+bun test tests/unit   # no assets, browser or network needed
+bun test tests        # needs prepared assets and Chromium; client tests also need Lark
 ```
 
-Integration tests require prepared CardKit resources and Chromium. Client-renderer tests also require a compatible local Lark client. The GitHub workflow currently runs type checking and input unit tests on Linux; it does not establish cross-platform rendering support.
+Set `LARK_CARD_CHROME` to run the integration tests against a specific Chromium executable. The GitHub workflow runs type checking and `tests/unit` on Linux; it does not establish cross-platform rendering support.
 
 ## Limits
 

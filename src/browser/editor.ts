@@ -1,6 +1,6 @@
 import { modules } from '/editor-registry.mjs';
 import { createRequire } from './webpack.ts';
-import { localCardLocales, sourceSchema, type CardDocument } from './input.ts';
+import { contentLocales, requireSchema, type CardDocument } from '../card/input.ts';
 
 type CompiledCard = { card: { schema: string; newBody: { property: { elements: { property: unknown }[] } } }; attachment: unknown; warnings: unknown[] };
 type EditorProject = { card: CardDocument; variables: unknown[]; compiled: CompiledCard };
@@ -122,7 +122,7 @@ async function loadCard(input: unknown, variables: unknown = []) {
   state('loading', '官方 JSON → UIDL → 原厂编辑器…');
   try {
     if (!Array.isArray(variables)) throw Error('variables 必须是官方变量描述数组');
-    const version = sourceSchema(input);
+    const version = requireSchema(input);
     const card = input as CardDocument;
     await api<CompiledCard>('compile', { card, variables, locale: localeSelect.value });
     const lowered = require<{ hh(input: unknown, version: number): { uidl: Record<string, unknown>; config: EditorState['config'] } }>(752103).hh({ dsl: card, variables, defaultLocale: localeSelect.value }, Number(version));
@@ -131,7 +131,7 @@ async function loadCard(input: unknown, variables: unknown = []) {
     const locale = Object.hasOwn(originalV1Locales, localeSelect.value) ? localeSelect.value : Object.hasOwn(originalV1Locales, 'en_us') ? 'en_us' : Object.keys(originalV1Locales)[0];
     if (schema === '1.0') localeSelect.value = locale;
     current = { locale: localeSelect.value, uidl: schema === '1.0' ? lowered.uidl[locale] : lowered.uidl, config: { ...lowered.config, update_multi: card.config?.update_multi ?? schema === '2.0' }, variables, cardEntity: undefined };
-    if (schema === '2.0') current.config.locales = [...new Set([...localCardLocales(card), current.locale])];
+    if (schema === '2.0') current.config.locales = [...new Set([...contentLocales(card), current.locale])];
     const features = require<{ getFeaturesByUserDSLVersion(input: { userDSLVersion: number }): unknown }>(81091).getFeaturesByUserDSLVersion({ userDSLVersion: Number(schema) });
     const globalVar = createHost(features);
     browser.CardBuilderSDKGlobalVar = globalVar;
@@ -213,9 +213,9 @@ async function bootstrap() {
   coreI18n.addResourceBundle('zh', undefined, { ...i18n.localI18n.getResourceBundle('zh-CN', 'translation'), SettingPanel: '组件配置' });
   types = require(819500); host = require(0);
   subscription = host.createSubscription({ [types.Source.CardData]: undefined, [types.Source.Host]: types.Host.Message, [types.Source.IframeLoading]: false, [types.Source.Disabled]: false });
-  const manifest = await (await fetch('/manifest.json')).json() as { locales: string[]; renderer: 'simulator' | 'client' };
-  element<HTMLAnchorElement>('#client-preview').hidden = manifest.renderer !== 'client';
-  for (const locale of manifest.locales) localeSelect.add(new Option(locale, locale));
+  const runtimeInfo = await (await fetch('/runtime-info.json')).json() as { locales: string[]; renderer: 'simulator' | 'client' };
+  element<HTMLAnchorElement>('#client-preview').hidden = runtimeInfo.renderer !== 'client';
+  for (const locale of runtimeInfo.locales) localeSelect.add(new Option(locale, locale));
   localeSelect.value = 'zh_cn';
   sdk = require<{ K(): { getInstance(): DesignerSDK } }>(864274).K().getInstance();
   const getSimulatorConfig = sdk.pluginManager.getGlobalSimulatorConfig.bind(sdk.pluginManager);
@@ -226,7 +226,7 @@ async function bootstrap() {
       if (!asset.contents) return asset;
       if (asset.name !== 'pluginManagerInjectScripts' && !Object.hasOwn(browser.PLUGIN_MANAGER_EXTERNALS, asset.name)) throw Error(`unknown_inline_asset name=${asset.name}`);
       const { contents, ...rest } = asset;
-      return { ...rest, url: ['/editor-frame.js'] };
+      return { ...rest, url: ['/browser/editor-frame.ts'] };
     });
     return config;
   };

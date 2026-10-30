@@ -9,14 +9,14 @@
   },
   "description": "Local Lark card editor and PNG preview for humans and agents",
   "exports": {
-    ".": "./src/core.ts"
+    ".": "./src/index.ts"
   },
   "bin": {
     "lark-card": "./src/cli.ts"
   },
   "scripts": {
-    "setup-assets": "bun runtime/prepare.ts && bun runtime/prepare-editor.ts",
-    "serve": "bun runtime/serve.ts",
+    "setup-assets": "bun src/assets/setup-compiler.ts && bun src/assets/setup-editor.ts",
+    "serve": "bun src/serve.ts",
     "check": "tsc --noEmit",
     "test": "bun test tests"
   },

@@ -2,17 +2,17 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Page } from 'playwright-core';
-import { startPreview } from '../runtime/serve.ts';
+import { startPreviewServer } from '../src/preview/server.ts';
 
 type UiContext = {
   page: Page;
-  preview: Awaited<ReturnType<typeof startPreview>>;
+  server: Awaited<ReturnType<typeof startPreviewServer>>;
   failures: string[];
   requests: string[];
 };
 
 export async function verifyUi(path: '/' | '/preview', verify: (context: UiContext) => Promise<void>) {
-  const preview = await startPreview({ port: 0, renderer: path === '/preview' ? 'client' : 'simulator' });
+  const server = await startPreviewServer({ port: 0, renderer: path === '/preview' ? 'client' : 'simulator' });
   try {
     const browser = await chromium.launch({ headless: true, executablePath: process.env.LARK_CARD_CHROME });
     try {
@@ -23,8 +23,8 @@ export async function verifyUi(path: '/' | '/preview', verify: (context: UiConte
       page.on('response', response => { if (response.status() >= 400) failures.push(`${response.status()} ${response.url()}`); });
       page.on('request', request => requests.push(request.url()));
       try {
-        await page.goto(preview.url + path);
-        await verify({ page, preview, failures, requests });
+        await page.goto(server.url + path);
+        await verify({ page, server, failures, requests });
       } catch (error) {
         const artifacts = await mkdtemp(join(tmpdir(), 'lark-card-evidence-'));
         try {
@@ -45,6 +45,6 @@ export async function verifyUi(path: '/' | '/preview', verify: (context: UiConte
       await browser.close();
     }
   } finally {
-    await preview.close();
+    await server.close();
   }
 }

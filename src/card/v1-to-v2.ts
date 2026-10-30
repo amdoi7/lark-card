@@ -1,9 +1,9 @@
 import { isDeepStrictEqual } from 'node:util';
-import { compileCard } from './compile.ts';
-import { cardError, legacyLocales, localCardLocales, prepareCard, sourceSchema, supportedLocales, transformNodes, type CardDocument } from './input.ts';
+import { CardError } from '../errors.ts';
+import { assertLocale, v1Locales, contentLocales, toCompilerInput, requireSchema, transformNodes, type CardDocument } from './input.ts';
 
 type CardNode = Record<string, unknown>;
-type Warning = { code: string; message?: string; path?: string; requested?: string; selected?: string };
+type MigrationWarning = { code: string; message?: string; path?: string; requested?: string; selected?: string };
 
 function localizable(node: CardNode, key: string): string | undefined {
   if (key === 'content' && ['plain_text', 'lark_md', 'markdown'].includes(node.tag as string)) return 'i18n_content';
@@ -11,10 +11,10 @@ function localizable(node: CardNode, key: string): string | undefined {
   if (key === 'img_key' && ['img', 'custom_icon', 'select_img'].includes(node.tag as string)) return 'i18n_img_key';
 }
 
-function convertVariant(input: CardDocument, locale: string, warnings: Warning[], localize: boolean): CardDocument {
-  const prepared = prepareCard(input, locale);
-  warnings.push(...prepared.warnings);
-  const card = prepared.card;
+function convertVariant(input: CardDocument, locale: string, warnings: MigrationWarning[], localize: boolean): CardDocument {
+  const compilerInput = toCompilerInput(input, locale);
+  warnings.push(...compilerInput.warnings);
+  const card = compilerInput.card;
   card.schema = '2.0';
   card.config = { ...card.config, update_multi: true };
   card.body!.vertical_spacing ??= '16px';
@@ -29,7 +29,7 @@ function convertVariant(input: CardDocument, locale: string, warnings: Warning[]
       warnings.push({ code: 'fallback_removed', path, message: '2.0 不支持旧版自定义降级规则' });
     }
     if (node.tag === 'markdown' && node.href && Object.keys(node.href as object).length) {
-      throw cardError('migration_requires_manual', `旧版 Markdown href 需要改写为 link 标签 path=${path}`);
+      throw new CardError('migration_requires_manual', `旧版 Markdown href 需要改写为 link 标签 path=${path}`);
     }
     for (const key of ['vertical_spacing', 'horizontal_spacing']) {
       if (node[key] === 'large') node[key] = 'extra_large';
@@ -48,7 +48,7 @@ function convertVariant(input: CardDocument, locale: string, warnings: Warning[]
       node.padding ??= decorated ? '8px' : '0px';
     }
     if (node.tag === 'img' && node.size === 'stretch_without_padding') {
-      if (node.margin !== undefined) throw cardError('migration_requires_manual', `通栏图片已有 margin，需要人工核对 path=${path}`);
+      if (node.margin !== undefined) throw new CardError('migration_requires_manual', `通栏图片已有 margin，需要人工核对 path=${path}`);
       node.size = 'crop_center';
       node.margin = '4px -12px';
       warnings.push({ code: 'image_layout_changed', path, message: '通栏图片按官方迁移示例改为负 margin，需要核对裁切效果' });
@@ -60,19 +60,19 @@ function convertVariant(input: CardDocument, locale: string, warnings: Warning[]
       }
     }
     if (node.tag === 'note') {
-      if (!Array.isArray(node.elements)) throw cardError('card_json_invalid', `note.elements 必须是数组 path=${path}`);
+      if (!Array.isArray(node.elements)) throw new CardError('card_json_invalid', `note.elements 必须是数组 path=${path}`);
       warnings.push({ code: 'note_layout_changed', path, message: '旧版备注拆为小号灰色文本或图片，需核对组合布局' });
       return node.elements.map((child: CardNode) => {
         if (child.tag === 'plain_text') return { tag: 'div', text: { ...child, text_size: 'notation', text_color: 'grey' } };
         if (['lark_md', 'markdown'].includes(child.tag as string)) return { ...child, tag: 'markdown', text_size: 'notation' };
         if (child.tag === 'img') return child;
-        throw cardError('migration_requires_manual', `备注包含未适配元素 tag=${child.tag} path=${path}`);
+        throw new CardError('migration_requires_manual', `备注包含未适配元素 tag=${child.tag} path=${path}`);
       });
     }
     if (node.tag === 'action') {
       const modes = { flow: 'flow', bisected: 'bisect', trisection: 'trisect' };
       const layout = (node.layout ?? 'flow') as string;
-      if (!Object.hasOwn(modes, layout) || !Array.isArray(node.actions)) throw cardError('migration_requires_manual', `交互模块布局无法转换 path=${path}`);
+      if (!Object.hasOwn(modes, layout) || !Array.isArray(node.actions)) throw new CardError('migration_requires_manual', `交互模块布局无法转换 path=${path}`);
       const { tag, actions, layout: oldLayout, ...rest } = node;
       return {
         ...rest,
@@ -87,7 +87,7 @@ function convertVariant(input: CardDocument, locale: string, warnings: Warning[]
 }
 
 function mergeLocales(base: unknown, other: unknown, locale: string, path = 'card'): unknown {
-  const mismatch = (): never => { throw cardError('migration_locale_structure_mismatch', `不同语言存在非文本结构差异 locale=${locale} path=${path}；不能自动合并为 2.0`); };
+  const mismatch = (): never => { throw new CardError('migration_locale_structure_mismatch', `不同语言存在非文本结构差异 locale=${locale} path=${path}；不能自动合并为 2.0`); };
   if (isDeepStrictEqual(base, other)) return base;
   if (Array.isArray(base) && Array.isArray(other)) {
     if (base.length !== other.length) mismatch();
@@ -108,29 +108,26 @@ function mergeLocales(base: unknown, other: unknown, locale: string, path = 'car
   return result;
 }
 
-export async function migrateCard(input: unknown, { locale = 'zh_cn', allowShared = false, variables = [] }: { locale?: string; allowShared?: boolean; variables?: readonly unknown[] } = {}) {
-  if (sourceSchema(input) !== '1.0') throw cardError('migration_source_invalid', 'V1→V2 转换只接受 1.0 卡片');
+export type V2Conversion = { card: CardDocument; warnings: MigrationWarning[]; chosen: string; locales: string[] };
+
+// Pure V1 → V2 conversion. `locales` lists every language the result declares; `chosen` is the
+// one the caller should compile first. Compiler validation is the caller's job.
+export function convertV1ToV2(input: unknown, { locale = 'zh_cn', allowShared = false }: { locale?: string; allowShared?: boolean } = {}): V2Conversion {
+  if (requireSchema(input) !== '1.0') throw new CardError('migration_source_invalid', 'V1→V2 转换只接受 1.0 卡片');
   const source = input as CardDocument;
-  if (typeof allowShared !== 'boolean') throw cardError('card_json_invalid', 'allowShared 必须是布尔值');
-  const warnings: Warning[] = [{ code: 'interaction_lifetime_changed', message: '2.0 的可交互/可更新时间统一为 14 天；旧客户端要求至少 7.20' }];
+  if (typeof allowShared !== 'boolean') throw new CardError('card_json_invalid', 'allowShared 必须是布尔值');
+  const warnings: MigrationWarning[] = [{ code: 'interaction_lifetime_changed', message: '2.0 的可交互/可更新时间统一为 14 天；旧客户端要求至少 7.20' }];
   if (source.config?.update_multi !== true) {
-    if (!allowShared) throw cardError('migration_requires_shared', 'V1 默认为独享卡片；2.0 只支持共享卡片。请明确允许切换共享模式后再迁移');
+    if (!allowShared) throw new CardError('migration_requires_shared', 'V1 默认为独享卡片；2.0 只支持共享卡片。请明确允许切换共享模式后再迁移');
     warnings.push({ code: 'sharing_changed', message: '已按显式授权将独享/默认模式改为 update_multi=true' });
   }
-  const globalLocales = legacyLocales(source);
+  const globalLocales = v1Locales(source);
   const chosen = globalLocales.includes(locale) ? locale : globalLocales.includes('en_us') ? 'en_us' : globalLocales[0] ?? locale;
   const variants = globalLocales.length ? [chosen, ...globalLocales.filter(value => value !== chosen)] : [locale];
   let card = convertVariant(source, variants[0], warnings, globalLocales.length > 0);
   for (const language of variants.slice(1)) card = mergeLocales(card, convertVariant(source, language, warnings, true), language) as CardDocument;
-  const locales = new Set([...globalLocales, ...localCardLocales(card)]);
+  const locales = new Set([...globalLocales, ...contentLocales(card)]);
   if (locales.size) card.config!.locales = [...locales];
-  for (const language of locales) {
-    if (!supportedLocales.includes(language)) throw cardError('card_json_invalid', `locale_invalid value=${language}`);
-  }
-  let compiled;
-  for (const language of new Set([chosen, ...locales])) {
-    const result = await compileCard(card, language, variables);
-    if (language === chosen) compiled = result;
-  }
-  return { card, compiled, warnings: [...new Map(warnings.map(warning => [JSON.stringify(warning), warning])).values()] };
+  for (const language of locales) assertLocale(language);
+  return { card, warnings: [...new Map(warnings.map(warning => [JSON.stringify(warning), warning])).values()], chosen, locales: [...locales] };
 }

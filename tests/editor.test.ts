@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { verifyUi } from './ui.ts';
 
 test('editor applies JSON changes and component settings to the card', async () => {
-  await verifyUi('/', async ({ page, failures, requests, preview }) => {
+  await verifyUi('/', async ({ page, failures, requests, server }) => {
     await page.waitForFunction(() => ['ready', 'error'].includes(document.querySelector<HTMLElement>('#local-status')!.dataset.state!));
     expect(await page.locator('#local-status').getAttribute('data-state')).toBe('ready');
     const frame = page.frameLocator('iframe[title="nclc-runtime-frame"]');
@@ -27,7 +27,7 @@ test('editor applies JSON changes and component settings to the card', async () 
       return editor.exportProject();
     });
     expect(project.card.body.vertical_spacing).toBe('24px');
-    expect(requests.filter(url => /^https?:/.test(url) && !url.startsWith(preview.url + '/'))).toEqual([]);
+    expect(requests.filter(url => /^https?:/.test(url) && !url.startsWith(server.url + '/'))).toEqual([]);
     expect(failures).toEqual([]);
   });
 }, 120000);

@@ -9,12 +9,12 @@ type ReactRuntime = {
   useLayoutEffect(effect: () => void, dependencies: unknown[]): void;
 };
 type CardEngine = { CardRender: unknown };
-type RendererManifest = { locales: string[]; html: string; engineModule: number };
+type RuntimeInfo = { locales: string[]; html: string; engineModule: number };
 type ClientWindow = Window & typeof globalThis & {
   ShellAPI: unknown;
   LarkAPI: unknown;
   vendors_lib: { React: ReactRuntime; ReactDOM: { createRoot(element: Element): { render(value: unknown): void } } };
-  feishuPreview: { render(value?: unknown): Promise<CompiledCard | Migration>; migrate(value?: unknown): Promise<CompiledCard | Migration>; manifest: RendererManifest; diagnostics: Diagnostic[] };
+  feishuPreview: { render(value?: unknown): Promise<CompiledCard | Migration>; migrate(value?: unknown): Promise<CompiledCard | Migration>; runtimeInfo: RuntimeInfo; diagnostics: Diagnostic[] };
 };
 
 const client = window as ClientWindow;
@@ -126,10 +126,10 @@ function download(value: unknown, filename: string) {
 }
 
 async function bootstrap() {
-  const manifest: RendererManifest = await (await fetch('/manifest.json')).json();
-  for (const language of manifest.locales) locale.add(new Option(language, language));
+  const runtimeInfo: RuntimeInfo = await (await fetch('/runtime-info.json')).json();
+  for (const language of runtimeInfo.locales) locale.add(new Option(language, language));
   locale.value = 'zh_cn';
-  const html = await (await fetch(`/vendor/messenger/${manifest.html}`)).text();
+  const html = await (await fetch(`/vendor/messenger/${runtimeInfo.html}`)).text();
   const documentSource = new DOMParser().parseFromString(html, 'text/html');
   for (const node of documentSource.querySelectorAll('link[rel="stylesheet"]')) {
     const link = document.createElement('link');
@@ -168,7 +168,7 @@ async function bootstrap() {
   const { __webpack_require__: require } = await import(modules[0]);
   const chunks = await Promise.all(modules.slice(1).map(src => import(src)));
   for (const chunk of chunks) require.C(chunk);
-  const Engine = require(manifest.engineModule).Ay;
+  const Engine = require(runtimeInfo.engineModule).Ay;
   React = client.vendors_lib.React;
   root = client.vendors_lib.ReactDOM.createRoot(element('#card-root'));
   const blocked = (operation: string, detail: unknown): never => {
@@ -208,14 +208,14 @@ async function bootstrap() {
       onClientChannel: (event: unknown) => report('client.channel', event),
     });
   };
-  element<HTMLElement>('#runtime-info').textContent = JSON.stringify(manifest, null, 2);
+  element<HTMLElement>('#runtime-info').textContent = JSON.stringify(runtimeInfo, null, 2);
   await Promise.all([...example.options].map(async option => {
     const response = await fetch(option.value);
     if (!response.ok) throw Error(`sample_load_failed status=${response.status}`);
     samples.set(option.value, await response.text());
   }));
   editor.value = samples.get(example.value)!;
-  client.feishuPreview = { render: value => run('compile', value), migrate: value => run('migrate', value), manifest, diagnostics };
+  client.feishuPreview = { render: value => run('compile', value), migrate: value => run('migrate', value), runtimeInfo, diagnostics };
   pending = false;
   await run('compile');
 }

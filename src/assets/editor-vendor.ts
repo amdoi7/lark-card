@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { extname, join } from 'node:path';
-import { cacheDirectory, type EditorAsset } from './assets.ts';
+import { extname } from 'node:path';
+import { CardError } from '../errors.ts';
+import { readCachedAsset, type EditorAsset } from './cache.ts';
 
 const assets: EditorAsset[] = JSON.parse(readFileSync(new URL('./editor-assets.json', import.meta.url), 'utf8'));
 const base = 'https://sf1-scmcdn-cn.feishucdn.com/obj/feishu-static/lark/cardkit/builder';
@@ -9,14 +10,14 @@ const base = 'https://sf1-scmcdn-cn.feishucdn.com/obj/feishu-static/lark/cardkit
 export function loadEditorAssets() {
   const result = new Map<string, Buffer>();
   for (const asset of assets) {
-    const data = readFileSync(join(cacheDirectory, asset.file));
-    if (createHash('sha256').update(data).digest('hex') !== asset.sha256) throw Error(`editor_asset_integrity_mismatch file=${asset.file} action="bun run setup-assets"`);
+    const data = readCachedAsset(asset.file);
+    if (createHash('sha256').update(data).digest('hex') !== asset.sha256) throw new CardError('assets_unavailable', `editor_asset_integrity_mismatch file=${asset.file} action="bun run setup-assets"`);
     result.set(asset.route, data);
   }
-  const generated: Record<string, string> = JSON.parse(readFileSync(join(cacheDirectory, 'editor/generated.json'), 'utf8'));
+  const generated: Record<string, string> = JSON.parse(readCachedAsset('editor/generated.json').toString());
   for (const [file, sha256] of Object.entries(generated)) {
-    const data = readFileSync(join(cacheDirectory, 'editor', file));
-    if (createHash('sha256').update(data).digest('hex') !== sha256) throw Error(`editor_generated_integrity_mismatch file=${file}`);
+    const data = readCachedAsset(`editor/${file}`);
+    if (createHash('sha256').update(data).digest('hex') !== sha256) throw new CardError('assets_unavailable', `editor_generated_integrity_mismatch file=${file}`);
     if (file === 'registry.mjs') result.set('/editor-registry.mjs', data);
     else {
       const name = file.split('.')[0];

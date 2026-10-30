@@ -1,5 +1,14 @@
+import { CardError } from '../errors.ts';
+
 export const supportedLocales = ['zh_cn', 'en_us', 'ja_jp', 'zh_hk', 'zh_tw', 'id_id', 'vi_vn', 'th_th', 'pt_br', 'es_es', 'ko_kr', 'de_de', 'fr_fr', 'it_it', 'ru_ru', 'ms_my'];
 const opaqueFields = new Set(['value', 'behaviors', 'chart_spec', 'chartSpec', 'rows']);
+
+export type Card = Record<string, unknown>;
+
+export type CardProject = {
+  card: Card;
+  variables?: readonly unknown[];
+};
 
 export type CardDocument = Record<string, unknown> & {
   schema?: string;
@@ -14,11 +23,11 @@ export type CardDocument = Record<string, unknown> & {
   };
 };
 
-type LocaleWarning = { code: string; path: string; requested: string; selected: string };
-
-export function cardError(code: string, message: string, details?: unknown) {
-  return Object.assign(Error(message), { code, ...(details ? { details } : {}) });
+export function assertLocale(locale: string) {
+  if (!supportedLocales.includes(locale)) throw new CardError('locale_invalid', `Unsupported locale: ${locale}.`);
 }
+
+type LocaleWarning = { code: string; path: string; requested: string; selected: string };
 
 export function transformNodes(value: unknown, transform: (node: Record<string, unknown>, path: string) => unknown, path = 'card'): unknown {
   if (!value || typeof value !== 'object') return value;
@@ -32,7 +41,7 @@ export function transformNodes(value: unknown, transform: (node: Record<string, 
   return transform(node, path);
 }
 
-export function localCardLocales(card: CardDocument): string[] {
+export function contentLocales(card: CardDocument): string[] {
   const locales = new Set(card.config?.locales || []);
   transformNodes(card, node => {
     for (const key of ['i18n_content', 'i18n_default_value', 'i18n_img_key', 'i18n_text_tag_list', 'i18n_file_key']) {
@@ -43,22 +52,22 @@ export function localCardLocales(card: CardDocument): string[] {
   return [...locales];
 }
 
-export function sourceSchema(input: unknown): '1.0' | '2.0' {
-  if (!input || typeof input !== 'object' || Array.isArray(input)) throw cardError('card_json_invalid', '输入必须是官方 Card JSON 对象');
+export function requireSchema(input: unknown): '1.0' | '2.0' {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new CardError('card_json_invalid', '输入必须是官方 Card JSON 对象');
   const schema = (input as CardDocument).schema ?? '1.0';
-  if (schema !== '1.0' && schema !== '2.0') throw cardError('card_json_invalid', `schema_unsupported value=${schema}`);
+  if (schema !== '1.0' && schema !== '2.0') throw new CardError('card_json_invalid', `schema_unsupported value=${schema}`);
   return schema;
 }
 
-export function legacyLocales(input: CardDocument): string[] {
+export function v1Locales(input: CardDocument): string[] {
   const locales: string[] = [];
   for (const key of ['i18n_elements', 'i18n_header'] as const) {
     if (input[key] === undefined) continue;
     const map = input[key];
-    if (!map || typeof map !== 'object' || Array.isArray(map)) throw cardError('card_json_invalid', `${key} 必须是语言到内容的映射`);
+    if (!map || typeof map !== 'object' || Array.isArray(map)) throw new CardError('card_json_invalid', `${key} 必须是语言到内容的映射`);
     for (const [locale, value] of Object.entries(map)) {
-      if (!supportedLocales.includes(locale)) throw cardError('card_json_invalid', `locale_invalid value=${locale}`);
-      if (key === 'i18n_elements' && !Array.isArray(value)) throw cardError('card_json_invalid', `i18n_elements.${locale} 必须是数组`);
+      assertLocale(locale);
+      if (key === 'i18n_elements' && !Array.isArray(value)) throw new CardError('card_json_invalid', `i18n_elements.${locale} 必须是数组`);
       locales.push(locale);
     }
   }
@@ -72,15 +81,15 @@ function localized(map: Record<string, unknown> | undefined, fallback: unknown, 
   return map[selected];
 }
 
-export function prepareCard(input: unknown, locale = 'zh_cn') {
-  const schema = sourceSchema(input);
-  if (!supportedLocales.includes(locale)) throw cardError('card_json_invalid', `locale_invalid value=${locale}`);
+export function toCompilerInput(input: unknown, locale = 'zh_cn') {
+  const schema = requireSchema(input);
+  assertLocale(locale);
   let card = structuredClone(input) as CardDocument;
   const warnings: LocaleWarning[] = [];
   if (schema === '1.0') {
-    legacyLocales(card);
+    v1Locales(card);
     const elements = localized(card.i18n_elements, card.elements ?? card.body?.elements ?? [], locale, warnings, 'card.i18n_elements');
-    if (!Array.isArray(elements)) throw cardError('card_json_invalid', 'elements 必须是数组');
+    if (!Array.isArray(elements)) throw new CardError('card_json_invalid', 'elements 必须是数组');
     card.header = localized(card.i18n_header, card.header, locale, warnings, 'card.i18n_header') as CardDocument['header'];
     delete card.i18n_elements;
     delete card.i18n_header;
@@ -103,4 +112,15 @@ export function prepareCard(input: unknown, locale = 'zh_cn') {
     }) as CardDocument;
   }
   return { card, sourceSchema: schema, locale, warnings };
+}
+
+export function parseCard(text: string): Card {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    throw new CardError('card_json_invalid', 'Input must be valid JSON.');
+  }
+  requireSchema(value);
+  return value as Card;
 }

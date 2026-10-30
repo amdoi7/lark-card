@@ -34,7 +34,7 @@ test('asset setup prepares a private cache and rejects corrupted assets', async 
     expect(rejected.code).not.toBe(0);
     expect(rejected.stderr).toContain('asset_integrity_mismatch');
     await cp(join(sourceCache, 'cardkit-parser.wasm'), join(cache, 'cardkit-parser.wasm'));
-    const assets = JSON.parse(await readFile(join(root, 'runtime', 'editor-assets.json'), 'utf8')) as { file: string }[];
+    const assets = JSON.parse(await readFile(join(root, 'src', 'assets', 'editor-assets.json'), 'utf8')) as { file: string }[];
     await writeFile(join(cache, assets[0].file), 'corrupted');
     const editorRejected = await runSetup();
     expect(editorRejected.code).not.toBe(0);

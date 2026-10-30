@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
-import { cacheDirectory, prepareAsset, type EditorAsset } from './assets.ts';
+import { cacheDirectory, ensureAsset, type EditorAsset } from './cache.ts';
 
 type Recipe = {
   hostModule: string;
@@ -18,7 +18,7 @@ let cursor = 0;
 await Promise.all(Array.from({ length: 8 }, async () => {
   while (cursor < assets.length) {
     const asset = assets[cursor++];
-    const data = await prepareAsset(asset, {
+    const data = await ensureAsset(asset, {
       timeout: 30000,
       downloadError: status => `editor_asset_download_failed status=${status} url=${asset.url}`,
       integrityError: () => `editor_asset_integrity_mismatch file=${asset.file}`,

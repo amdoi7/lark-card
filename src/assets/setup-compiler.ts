@@ -1,10 +1,10 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { runInNewContext } from 'node:vm';
-import { cacheDirectory, prepareAsset, remoteAssets } from './assets.ts';
+import { cacheDirectory, ensureAsset, remoteAssets } from './cache.ts';
 
 await Promise.all(remoteAssets.map(async asset => {
-  await prepareAsset(asset, {
+  await ensureAsset(asset, {
     timeout: 20000,
     downloadError: status => `asset_download_failed url=${asset.url} status=${status}`,
     integrityError: (target, actual) => `asset_integrity_mismatch file=${target} expected=${asset.sha256} actual=${actual}`,

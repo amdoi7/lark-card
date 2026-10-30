@@ -100,7 +100,7 @@ test('render refuses to overwrite an input file, including through a hard link',
       const [stdout, stderr, code] = await Promise.all([new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited]);
       expect(code).not.toBe(0);
       expect(stdout).toBe('');
-      expect(JSON.parse(stderr).code).toBe('card_json_invalid');
+      expect(JSON.parse(stderr).code).toBe('usage_invalid');
       expect(await readFile(input, 'utf8')).toBe(original);
       expect(await readFile(variables, 'utf8')).toBe('[]');
     }
