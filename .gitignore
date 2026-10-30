@@ -1,3 +1,8 @@
 node_modules/
 dist/
+/previews/
 *.png
+.env
+.env.*
+!.env.example
+.DS_Store
