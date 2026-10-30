@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>飞书原厂卡片预览 · V1 / V2 / VR</title>
+  <style>
+    body { margin: 0; font: 14px/1.5 system-ui, sans-serif; color: #1f2329; background: #f5f6f7; }
+    #toolbar { padding: 16px 24px; background: white; border-bottom: 1px solid #dee0e3; }
+    #toolbar h1 { margin: 0 0 4px; font-size: 19px; }
+    #toolbar p { margin: 4px 0; color: #646a73; }
+    #controls { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    #controls button, #controls select { padding: 5px 10px; font: inherit; }
+    #status { display: block; margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    #status[data-state="error"] { color: #c52a24; }
+    #workspace { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(390px, 1fr); gap: 20px; padding: 20px; }
+    textarea { width: 100%; box-sizing: border-box; resize: vertical; font: 12px/1.6 ui-monospace, monospace; border: 1px solid #bbbfc4; border-radius: 8px; padding: 14px; }
+    #editor { min-height: 560px; }
+    #variables { min-height: 100px; }
+    #stage { padding: 20px; background: #e4e7eb; min-height: 520px; overflow: auto; border-radius: 8px; }
+    .chat-shell { max-width: 680px; margin: auto; background: #f5f6f7; border: 1px solid #d9dce0; border-radius: 12px; overflow: hidden; }
+    .chat-heading { padding: 14px 18px; border-bottom: 1px solid #d9dce0; color: #646a73; }
+    .chat-message { padding: 18px; }
+    .sender { color: #646a73; margin-bottom: 8px; font-size: 12px; }
+    #preview-card { width: 100%; max-width: 600px; background: var(--bg-body, white); border-radius: 10px; overflow: hidden; }
+    #preview-card[data-platform="ios"] { width: 320px; }
+    details { margin-top: 12px; }
+    #runtime-info, #events, #compiled { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+    #events { max-height: 220px; overflow: auto; }
+    #compiled { max-height: 400px; overflow: auto; }
+    .scope { font-size: 12px; color: #646a73; }
+    @media (max-width: 800px) { #workspace { grid-template-columns: 1fr; } #editor { min-height: 300px; } }
+  </style>
+</head>
+<body>
+  <header id="toolbar">
+    <h1>飞书客户端原厂渲染 · V1 / V2 / VR</h1>
+    <p>官方 Card JSON → 官方 CardKit WASM → 内部 VR → 本机 Lark 原厂组件。V1 预览不强制升级为 V2。</p>
+    <div id="controls">
+      <button id="render" disabled>编译并预览</button>
+      <button id="migrate" disabled>V1 → V2 并预览</button>
+      <button id="export-json" disabled>导出 Card JSON</button>
+      <button id="export-vr" disabled>导出 VR</button>
+      <select id="example" aria-label="示例" disabled>
+        <option value="/examples/project-assistant.card.json">项目小助理 V2</option>
+        <option value="/examples/project-assistant-legacy.card.json">项目小助理 V1</option>
+        <option value="/sample.json">基础组件 V2</option>
+      </select>
+      <button id="sample" disabled>载入示例</button>
+      <label>平台 <select id="platform" disabled><option value="pc">桌面</option><option value="ios">移动布局（非真机）</option></select></label>
+      <label>主题 <select id="theme" disabled><option value="light">浅色</option><option value="dark">深色</option></select></label>
+      <label>语言 <select id="locale" disabled></select></label>
+    </div>
+    <p><label><input id="allow-shared" type="checkbox" disabled>迁移时允许将独享/默认卡片改为共享（V2 仅支持共享；不影响 V1 预览）</label></p>
+    <span id="status" role="status" data-state="loading">正在加载本机原厂 runtime…</span>
+  </header>
+  <main id="workspace">
+    <section>
+      <label for="editor">官方 Card JSON V1 / V2（无需 property 包装）</label>
+      <textarea id="editor" readonly spellcheck="false" aria-label="官方 Card JSON"></textarea>
+      <details><summary>编译变量（官方 variables / mockData，可选）</summary><textarea id="variables" readonly spellcheck="false" aria-label="编译变量">[]</textarea></details>
+      <details><summary>自动编译的 VR（只读）</summary><pre id="compiled"></pre></details>
+      <details><summary>原厂资源来源与适配信息</summary><pre id="runtime-info"></pre></details>
+    </section>
+    <section>
+      <div id="stage"><div class="chat-shell"><div class="chat-heading">本地聊天场景预览</div><div class="chat-message"><div class="sender">本地示例 · 非真实群聊</div><div id="preview-card"><div id="card-root"></div></div></div></div></div>
+      <p class="scope">聊天外框仅用于展示；卡片由原厂组件绘制。不会发送消息或执行生产回调。图片、真实人员等仍需要宿主资源；移动布局不等于真机。</p>
+      <details open><summary>编译提示 / 宿主事件 / 诊断</summary><pre id="events"></pre></details>
+    </section>
+  </main>
+  <script src="/vendor/resource/js/shared-vendors-messenger-react18.js"></script>
+  <script type="module" src="/runtime.mjs"></script>
+</body>
+</html>

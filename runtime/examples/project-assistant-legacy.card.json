@@ -1,0 +1,290 @@
+{
+  "config": {
+    "update_multi": true
+  },
+  "card_link": {
+    "url": ""
+  },
+  "i18n_elements": {
+    "zh_cn": [
+      {
+        "tag": "markdown",
+        "content": "**项目名称**：业务做大做强",
+        "text_align": "left",
+        "text_size": "normal",
+        "icon": {
+          "tag": "standard_icon",
+          "token": "add-app_outlined",
+          "color": "grey"
+        }
+      },
+      {
+        "tag": "form",
+        "name": "Form_lq544v6q",
+        "elements": [
+          {
+            "tag": "column_set",
+            "horizontal_spacing": "8px",
+            "horizontal_align": "left",
+            "columns": [
+              {
+                "tag": "column",
+                "width": "weighted",
+                "weight": 1,
+                "vertical_align": "center",
+                "vertical_spacing": "8px",
+                "elements": [
+                  {
+                    "tag": "markdown",
+                    "content": "**经办人**<font color='red'>*</font>",
+                    "text_align": "left",
+                    "text_size": "normal",
+                    "icon": {
+                      "tag": "standard_icon",
+                      "token": "member_outlined",
+                      "color": "light_grey"
+                    }
+                  }
+                ]
+              },
+              {
+                "tag": "column",
+                "width": "weighted",
+                "weight": 4,
+                "vertical_align": "top",
+                "vertical_spacing": "8px",
+                "elements": [
+                  {
+                    "tag": "select_person",
+                    "placeholder": {
+                      "tag": "plain_text",
+                      "content": "请选择"
+                    },
+                    "options": [],
+                    "width": "fill",
+                    "type": "default",
+                    "required": true,
+                    "name": "PersonSelect_rg0ml5mh"
+                  }
+                ]
+              }
+            ],
+            "margin": "16px 0px 16px 0px"
+          },
+          {
+            "tag": "column_set",
+            "horizontal_spacing": "8px",
+            "horizontal_align": "left",
+            "columns": [
+              {
+                "tag": "column",
+                "width": "weighted",
+                "weight": 1,
+                "vertical_align": "center",
+                "vertical_spacing": "8px",
+                "elements": [
+                  {
+                    "tag": "markdown",
+                    "content": "**优先级**<font color='red'>*</font>",
+                    "text_align": "left",
+                    "text_size": "normal",
+                    "icon": {
+                      "tag": "standard_icon",
+                      "token": "msgcard-rectangle_outlined",
+                      "color": "grey"
+                    }
+                  }
+                ]
+              },
+              {
+                "tag": "column",
+                "width": "weighted",
+                "weight": 4,
+                "vertical_align": "top",
+                "vertical_spacing": "8px",
+                "elements": [
+                  {
+                    "tag": "select_static",
+                    "placeholder": {
+                      "tag": "plain_text",
+                      "content": "请选择"
+                    },
+                    "options": [
+                      {
+                        "text": {
+                          "tag": "plain_text",
+                          "content": "P0"
+                        },
+                        "value": "1",
+                        "icon": {
+                          "tag": "standard_icon",
+                          "token": "sheet-iconsets-increase_filled"
+                        }
+                      },
+                      {
+                        "text": {
+                          "tag": "plain_text",
+                          "content": "P1"
+                        },
+                        "value": "P1",
+                        "icon": {
+                          "tag": "standard_icon",
+                          "token": "sheet-iconsets-stable_filled"
+                        }
+                      },
+                      {
+                        "text": {
+                          "tag": "plain_text",
+                          "content": "P2"
+                        },
+                        "value": "3",
+                        "icon": {
+                          "tag": "standard_icon",
+                          "token": "expand-down_filled"
+                        }
+                      }
+                    ],
+                    "type": "default",
+                    "width": "fill",
+                    "required": true,
+                    "name": "Select_01taxkgaqc6c"
+                  }
+                ]
+              }
+            ],
+            "margin": "16px 0px 16px 0px"
+          },
+          {
+            "tag": "column_set",
+            "horizontal_spacing": "8px",
+            "horizontal_align": "left",
+            "columns": [
+              {
+                "tag": "column",
+                "width": "weighted",
+                "weight": 1,
+                "vertical_align": "center",
+                "vertical_spacing": "8px",
+                "elements": [
+                  {
+                    "tag": "markdown",
+                    "content": "**项目评论**",
+                    "text_align": "left",
+                    "text_size": "normal",
+                    "icon": {
+                      "tag": "standard_icon",
+                      "token": "chat_outlined",
+                      "color": "grey"
+                    }
+                  }
+                ]
+              },
+              {
+                "tag": "column",
+                "width": "weighted",
+                "weight": 4,
+                "vertical_align": "top",
+                "vertical_spacing": "8px",
+                "elements": [
+                  {
+                    "tag": "input",
+                    "placeholder": {
+                      "tag": "plain_text",
+                      "content": "请输入"
+                    },
+                    "default_value": "",
+                    "width": "fill",
+                    "name": "Input_0bqcy75cxklr",
+                    "fallback": {
+                      "tag": "fallback_text",
+                      "text": {
+                        "tag": "plain_text",
+                        "content": "仅支持在 V6.8 及以上版本使用"
+                      }
+                    }
+                  }
+                ]
+              }
+            ],
+            "margin": "16px 0px 16px 0px"
+          },
+          {
+            "tag": "column_set",
+            "flex_mode": "bisect",
+            "horizontal_spacing": "8px",
+            "horizontal_align": "right",
+            "columns": [
+              {
+                "tag": "column",
+                "width": "auto",
+                "vertical_align": "top",
+                "vertical_spacing": "8px",
+                "elements": [
+                  {
+                    "tag": "button",
+                    "text": {
+                      "tag": "plain_text",
+                      "content": "提交"
+                    },
+                    "type": "primary_filled",
+                    "width": "default",
+                    "icon": {
+                      "tag": "standard_icon",
+                      "token": "thumbsup_outlined"
+                    },
+                    "form_action_type": "submit",
+                    "name": "Button_lq544v6r"
+                  }
+                ]
+              },
+              {
+                "tag": "column",
+                "width": "auto",
+                "vertical_align": "top",
+                "vertical_spacing": "8px",
+                "elements": [
+                  {
+                    "tag": "button",
+                    "text": {
+                      "tag": "plain_text",
+                      "content": "取消"
+                    },
+                    "type": "default",
+                    "width": "default",
+                    "form_action_type": "reset",
+                    "name": "Button_lq544v6s"
+                  }
+                ]
+              }
+            ],
+            "margin": "0px 0px 0px 0px"
+          }
+        ],
+        "fallback": {
+          "tag": "fallback_text",
+          "text": {
+            "tag": "plain_text",
+            "content": "仅支持在 V6.6 及以上版本使用"
+          }
+        }
+      }
+    ]
+  },
+  "i18n_header": {
+    "zh_cn": {
+      "title": {
+        "tag": "plain_text",
+        "content": "项目小助理"
+      },
+      "template": "wathet",
+      "ud_icon": {
+        "tag": "standard_icon",
+        "token": "robot_outlined"
+      },
+      "subtitle": {
+        "tag": "plain_text",
+        "content": ""
+      }
+    }
+  }
+}
