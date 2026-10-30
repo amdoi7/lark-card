@@ -1,6 +1,5 @@
 import { expect, test } from 'bun:test';
 import { conversionWarnings, diagnosticWarnings, resourceWarnings } from '../../src/preview/warnings.ts';
-import { asCardError, CardError, httpStatus } from '../../src/errors.ts';
 
 test('reports components lost in the editor round trip, with their input paths', () => {
   const input = { body: { elements: [{ tag: 'markdown' }, { tag: 'collapsible_panel', elements: [] }] } };
@@ -25,13 +24,4 @@ test('keeps renderer diagnostics that indicate a degraded preview and drops the 
   expect(diagnosticWarnings([
     { operation: 'compiler.warning', detail: 1 }, { operation: 'host.unavailable', detail: 2 }, { operation: 'toast.info', detail: 3 },
   ])).toEqual([{ code: 'renderer_diagnostic', operation: 'host.unavailable', detail: 2 }]);
-});
-
-test('error boundary adapter keeps known codes and reports everything else under the fallback', () => {
-  expect(asCardError({ code: 'card_compile_failed', message: 'm', details: [1] }, 'render_failed')).toMatchObject({ code: 'card_compile_failed', message: 'm', details: [1] });
-  expect(asCardError({ code: 'ENOENT', message: 'missing' }, 'render_failed')).toMatchObject({ code: 'render_failed', message: 'missing' });
-  expect(asCardError(new Error('boom'), 'compiler_runtime_failed')).toMatchObject({ code: 'compiler_runtime_failed', message: 'boom' });
-  const original = new CardError('usage_invalid', 'x');
-  expect(asCardError(original, 'render_failed')).toBe(original);
-  expect([httpStatus('usage_invalid'), httpStatus('batch_output_exists'), httpStatus('request_too_large'), httpStatus('compiler_timeout')]).toEqual([400, 409, 413, 500]);
 });

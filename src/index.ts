@@ -4,6 +4,7 @@ import { migrateCard } from './migrate.ts';
 
 export type { Card, CardProject } from './card/input.ts';
 export type { CompiledCard } from './compiler/compile.ts';
+export { CardError, type ErrorCode } from './errors.ts';
 export { render, type RenderResult, type RenderOptions, type RenderWarning } from './preview/render.ts';
 
 export function compile(project: CardProject, locale = 'zh_cn'): Promise<CompiledCard> {
