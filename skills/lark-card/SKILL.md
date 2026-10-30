@@ -1,16 +1,16 @@
 ---
 name: lark-card
-description: Review and customize Lark or Feishu card JSON using local previews. Use when changing cards or reviewing their layout.
-compatibility: Requires Bun, Chromium (Playwright's, or a path passed with --chrome), and prepared CardKit assets. The optional client renderer also requires a compatible Lark installation.
+description: Review, migrate, and preview Lark and Feishu card JSON files locally. Use when editing card JSON, converting cards from version 1 to version 2, or checking card layout on desktop and mobile.
+compatibility: Requires Bun, Chromium, and prepared CardKit assets. The client renderer also requires Lark installed locally.
 ---
 
 # Review Lark cards
 
-The project root is two directories above this skill; run commands from there. Setup and options are in its README.
+Run commands from the package root, two directories above this file. See `README.md` for installation instructions.
 
 ## Define coverage
 
-For "review all cards", list the static JSON files and dynamic card-generation entry points in the business project, and the states and roles each can produce. Generate JSON from real calls or test data. Dynamic state enumeration belongs to the business project, not this tool, so never claim full coverage from representative examples. Record every case with its generation, PC and iOS status, and each uncovered case with its reason.
+When reviewing cards across a project, list static card JSON files and dynamic card generation functions, along with the states and user roles that each produces. Generate sample JSON from test data or application logs. Do not claim full coverage from a small sample. Record whether each case rendered in desktop and mobile layouts. Document any missing case and the reason it was not tested.
 
 ## Review layout
 
@@ -18,38 +18,38 @@ For "review all cards", list the static JSON files and dynamic card-generation e
 bun src/cli.ts render-batch card-a.json card-b.json --output-dir previews
 ```
 
-The output directory must be fresh. Read `previews/manifest.json` for results and warnings, then inspect both PNGs of every successful case: text clipping, button width, wrapping, hierarchy, and input-to-action distance. A shared submit button must not look like it applies to one field only.
+The output directory must not exist before the command runs. Read `previews/manifest.json` for execution status and warnings. Open both PNG files for each rendered card. Inspect text clipping, button width, line wrapping, visual hierarchy, and the distance between inputs and buttons. Make sure shared submit buttons do not appear inside individual form fields.
 
-For key cards or suspicious components, compare the source JSON, `compile` output and a client-renderer preview (needs a local Lark install):
+For critical cards or unexpected layouts, compare the input JSON, the compiled output, and a client preview rendered by the local Lark application.
 
 ```sh
 bun src/cli.ts compile card.json > card-vr.json
 bun src/cli.ts render card.json --renderer client -o card-client-pc.png
 ```
 
-The client renderer has omitted Markdown link text and the simulator a collapsible panel. Do not change a business card because one renderer omits something; neither replaces a real-client or device check.
+In known local runs, the client renderer has dropped link text inside Markdown, and the simulator has dropped collapsible panels. Do not modify a business card solely because a local renderer drops an element. Local previews do not replace checks on real clients or physical mobile devices.
 
-## Migrate V1 cards
+## Migrate version 1 cards
 
 ```sh
 bun src/cli.ts migrate legacy.json > card-v2.json
 ```
 
-V2 supports only shared cards. On `migration_requires_shared`, ask the user before rerunning with `--allow-shared`; it changes how the card updates. Read the stderr warnings (notes, full-width images, removed fallbacks) and render the result before calling it equivalent. `migration_requires_manual` and `migration_locale_structure_mismatch` need a human decision: report the path, don't edit around it.
+Version 2 cards support only shared mode, where actions update the card for every member of a conversation. If `migrate` returns `migration_requires_shared`, confirm with the user before passing `--allow-shared`. Review warnings written to standard error for adjusted notes, cropped images, and removed fallback blocks. Render the migrated card before treating it as equivalent to the original. If migration returns `migration_requires_manual` or `migration_locale_structure_mismatch`, report the field path to the user instead of guessing a fix.
 
 ## Handle failures
 
-Errors are JSON on stderr; branch on `code`.
+Failed commands write a JSON object to standard error. Read the `code` field to decide the next action.
 
-- `usage_invalid`, `locale_invalid`, `card_json_invalid`: fix the command or input.
-- `card_compile_failed`, `card_component_failed`, `simulator_empty_card`, `simulator_render_failed`: report `details` (component path, tag, code); fix the card only if asked to change it.
-- `assets_unavailable`: `bun run setup-assets` downloads from Feishu and GitHub, so tell the user first.
-- `client_unavailable`: use the simulator, or pass `--webcontent`.
-- `batch_output_exists`: use a fresh `--output-dir`.
-- `compiler_timeout`, `compiler_runtime_failed`, `render_failed`: retry once, then report the message.
+- `usage_invalid`, `locale_invalid`, and `card_json_invalid`. Correct the command arguments, locale code, or input JSON.
+- `card_compile_failed`, `card_component_failed`, `simulator_empty_card`, and `simulator_render_failed`. The card contains invalid elements or cannot be rendered. Report the component path, tag, and error code from the `details` field. Do not edit the card unless the user requested modifications.
+- `assets_unavailable`. Running `bun run setup-assets` downloads files from external servers. Ask the user before starting the download.
+- `client_unavailable`. Use the default simulator renderer, or pass `--webcontent` with the path to local Lark archives.
+- `batch_output_exists`. Choose an output directory that does not yet exist.
+- `compiler_timeout`, `compiler_runtime_failed`, and `render_failed`. Retry the command once. If the command fails again, report the error message.
 
 ## Preserve behavior and report
 
-Unless asked, keep form ownership, control names, button actions and values, links and role visibility. A preview shows appearance only; it does not prove submission, callbacks or permissions work. Use only trusted cards and variables, and never send a card without the user's approval.
+When modifying a card, keep form boundaries, element names, button values, URL links, and role permissions unchanged unless the user asks to alter them. A preview shows layout only. It does not verify button callbacks, form submission, or access control. Never send a card to an external chat without explicit confirmation from the user.
 
-Report PNG paths, renderer, layout and unverified cases, plus these warnings: `resource_unresolved` (images or people the local host cannot resolve), `simulator_component_count_decreased` (components the simulator dropped, with paths; compare with the client renderer first) and `renderer_diagnostic`. A PNG alone does not prove every component rendered.
+Report image file paths, the renderer used, the layout checked, and any skipped test cases. Include warning details when present. The warning `resource_unresolved` indicates missing image files or unresolved user tokens. The warning `simulator_component_count_decreased` lists elements dropped during simulator conversion, along with their JSON paths. Check dropped elements against the client renderer before changing the source card. The warning `renderer_diagnostic` carries internal runtime notices.
