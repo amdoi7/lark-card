@@ -28,6 +28,13 @@ export type PreviewWarning = {
   inputCount: number;
   exportedCount: number;
   candidatePaths: string[];
+} | {
+  code: 'resource_unresolved';
+  resources: string[];
+} | {
+  code: 'renderer_diagnostic';
+  operation: string;
+  detail: unknown;
 };
 
 export type Preview = {

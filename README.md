@@ -37,7 +37,7 @@ cat legacy.json | bun src/cli.ts migrate - | bun src/cli.ts compile -
 
 `compile` writes the official compiled VR and warnings as JSON to stdout. `migrate` writes Card JSON to stdout and warnings as JSON to stderr. `render` writes PNG bytes to stdout unless `--output` is set; compilation and simulator conversion warnings go to stderr. Errors are JSON on stderr and cause a nonzero exit status. `--variables` accepts a CardKit variables JSON array. The default locale is `zh_cn`.
 
-`render-batch` renders every listed file in PC and iOS layouts. It writes `manifest.json` in the output directory and the same JSON to stdout; each result includes the input, renderer, platform, output, status, warnings, and any error. A failed result makes the command exit nonzero. The manifest and PNGs are created exclusively, not overwritten; use a fresh output directory. Batch accepts files only, not stdin or `--variables`.
+`render-batch` renders every listed file in PC and iOS layouts. It writes `manifest.json` in the output directory and the same JSON to stdout; each result includes the input, renderer, platform, output, status, warnings, and any error. A failed result makes the command exit nonzero. The manifest is updated after each result; after interruption, `pending` entries are not confirmed complete and may have a partial output. The manifest and PNGs are created exclusively, not overwritten; use a fresh output directory for another run. Batch accepts files only, not stdin or `--variables`.
 
 The default renderer is `simulator`. Use `--renderer client` for the installed Lark client renderer. On macOS the client renderer uses the default Lark application path. On other systems pass `--webcontent` with the directory containing the compatible client archives. Use `--chrome` to select a Chromium executable instead of Playwright's installed Chromium.
 
@@ -57,7 +57,7 @@ For a request to review all business cards, enumerate static JSON, dynamic gener
 
 Use the simulator for routine PC and iOS layout checks. For key cards or a missing component, compare the source JSON and compiled VR with the client renderer. The client renderer has omitted Markdown link text; the simulator has omitted a collapsible panel. These observations concern local previews, not every Lark release. Neither renderer replaces a real-client check.
 
-Check text clipping, button width, wrapping, visual hierarchy, and the distance between inputs and their actions. Preserve form ownership, control names, button actions and values, links, and role visibility. A screenshot cannot prove that submission, callbacks, or permissions work. A successful PNG does not prove that every component appeared.
+Check text clipping, button width, wrapping, visual hierarchy, and the distance between inputs and their actions. Preserve form ownership, control names, button actions and values, links, and role visibility. A screenshot cannot prove that submission, callbacks, or permissions work. A successful PNG does not prove that every component appeared. `resource_unresolved` warns when the compiled card references images or people that the local host cannot resolve; inspect the PNG and verify in a real client.
 
 The Agent workflow is in `skills/lark-card/SKILL.md`.
 

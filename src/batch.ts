@@ -1,4 +1,5 @@
-import { mkdir, open, readFile, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { link, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { parseCard } from './card-input';
 import { render, type PreviewOptions } from './core';
@@ -8,7 +9,7 @@ type BatchResult = {
   renderer: 'simulator' | 'client';
   platform: 'pc' | 'ios';
   output: string;
-  status: 'ok' | 'error';
+  status: 'pending' | 'ok' | 'error';
   warnings: unknown[];
   error?: { code: string; message: string };
 };
@@ -16,35 +17,40 @@ type BatchResult = {
 export async function renderBatch(inputs: string[], directory: string, options: PreviewOptions) {
   await mkdir(directory, { recursive: true });
   const manifestPath = join(directory, 'manifest.json');
-  let manifestFile;
-  try { manifestFile = await open(manifestPath, 'wx'); }
+  const temporary = join(directory, `.manifest-${randomUUID()}.tmp`);
+  const results: BatchResult[] = inputs.flatMap((input, index) => (['pc', 'ios'] as const).map(platform => ({
+    input, renderer: options.renderer ?? 'simulator', platform,
+    output: join(directory, `${String(index + 1).padStart(4, '0')}-${platform}.png`),
+    status: 'pending', warnings: [],
+  })));
+  const manifest = { results };
+  async function save(initial = false) {
+    await writeFile(temporary, JSON.stringify(manifest) + '\n', { flag: 'wx' });
+    try {
+      if (initial) await link(temporary, manifestPath);
+      else await rename(temporary, manifestPath);
+    } finally {
+      await unlink(temporary).catch(error => { if (error.code !== 'ENOENT') throw error; });
+    }
+  }
+  try { await save(true); }
   catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw Object.assign(Error(`Batch manifest already exists: ${manifestPath}`), { code: 'batch_output_exists' });
     throw error;
   }
-  const results: BatchResult[] = [];
-  try {
-    for (const [index, input] of inputs.entries()) {
-      for (const platform of ['pc', 'ios'] as const) {
-        const output = join(directory, `${String(index + 1).padStart(4, '0')}-${platform}.png`);
-        const result: BatchResult = { input, renderer: options.renderer ?? 'simulator', platform, output, status: 'ok', warnings: [] };
-        try {
-          const card = parseCard(await readFile(input, 'utf8'));
-          const preview = await render({ card }, { ...options, platform });
-          result.warnings = [...preview.compiled.warnings, ...preview.warnings];
-          await writeFile(output, preview.png, { flag: 'wx' });
-        } catch (error) {
-          const failure = error as Error & { code?: string };
-          result.status = 'error';
-          result.error = { code: failure.code ?? 'render_failed', message: failure.message };
-        }
-        results.push(result);
-      }
+  for (const result of results) {
+    try {
+      const card = parseCard(await readFile(result.input, 'utf8'));
+      const preview = await render({ card }, { ...options, platform: result.platform });
+      result.warnings = [...preview.compiled.warnings, ...preview.warnings];
+      await writeFile(result.output, preview.png, { flag: 'wx' });
+      result.status = 'ok';
+    } catch (error) {
+      const failure = error as Error & { code?: string };
+      result.status = 'error';
+      result.error = { code: failure.code ?? 'render_failed', message: failure.message };
     }
-    const manifest = { results };
-    await manifestFile.writeFile(JSON.stringify(manifest) + '\n');
-    return manifest;
-  } finally {
-    await manifestFile.close();
+    await save();
   }
+  return manifest;
 }

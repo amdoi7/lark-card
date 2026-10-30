@@ -3,8 +3,9 @@ import { startPreview } from '../runtime/serve.ts';
 import { transformNodes } from '../runtime/input.ts';
 import type { CardProject, CompiledCard, Preview, PreviewOptions, PreviewWarning } from './core';
 
-type EditorApi = { load(card: unknown, variables: readonly unknown[], locale: string): Promise<CompiledCard>; exportProject(): { card: unknown } };
-type ClientApi = { render(card: unknown): Promise<CompiledCard> };
+type Diagnostic = { operation: string; detail: unknown };
+type EditorApi = { load(card: unknown, variables: readonly unknown[], locale: string): Promise<CompiledCard>; exportProject(): { card: unknown }; diagnostics: Diagnostic[] };
+type ClientApi = { render(card: unknown): Promise<CompiledCard>; diagnostics: Diagnostic[] };
 
 export class RenderError extends Error {
   readonly code: string;
@@ -34,6 +35,17 @@ function conversionWarnings(input: unknown, exported: unknown): PreviewWarning[]
       inputCount: candidatePaths.length, exportedCount, candidatePaths,
     }] : [];
   });
+}
+
+function resourceWarnings(compiled: CompiledCard): PreviewWarning[] {
+  const attachment = compiled.attachment as Record<string, Record<string, unknown>>;
+  const resources = ['images', 'atUsers', 'characters'].filter(name => Object.keys(attachment[name] ?? {}).length > 0);
+  return resources.length ? [{ code: 'resource_unresolved', resources }] : [];
+}
+
+function diagnosticWarnings(diagnostics: Diagnostic[]): PreviewWarning[] {
+  const relevant = new Set(['host.unavailable', 'frame.error', 'engine.error', 'render.failed', 'resource.resolve', 'runtime.error', 'runtime.rejection']);
+  return diagnostics.filter(item => relevant.has(item.operation)).map(item => ({ code: 'renderer_diagnostic', ...item }));
 }
 
 async function bounded<T>(promise: Promise<T>, operation: string): Promise<T> {
@@ -73,17 +85,21 @@ export async function renderCard(project: CardProject, options: PreviewOptions):
           localeControl.value = input.locale;
           if (localeControl.value !== input.locale) throw Error('locale_invalid value=' + input.locale);
           try {
-            const compiled = await (window as unknown as { feishuPreview: ClientApi }).feishuPreview.render(input.card);
+            const client = (window as unknown as { feishuPreview: ClientApi }).feishuPreview;
+            const diagnosticStart = client.diagnostics.length;
+            const compiled = await client.render(input.card);
             await document.fonts.ready;
             await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-            return { compiled };
+            return { compiled, diagnosticStart };
           } catch (error) {
             const failure = error as Error & { code?: string; details?: unknown };
             return { error: { code: failure.code ?? 'render_failed', message: failure.message, details: failure.details } };
           }
         }, { card: project.card, variables: project.variables ?? [], platform, theme, locale }), 'client');
         if (result.error) throw new RenderError(result.error.code, result.error.message, result.error.details);
-        return { png: await page.locator('#preview-card').screenshot({ type: 'png' }), renderer, compiled: result.compiled!, warnings: [] };
+        const png = await page.locator('#preview-card').screenshot({ type: 'png' });
+        const diagnostics = await page.evaluate(start => (window as unknown as { feishuPreview: ClientApi }).feishuPreview.diagnostics.slice(start), result.diagnosticStart);
+        return { png, renderer, compiled: result.compiled!, warnings: [...resourceWarnings(result.compiled!), ...diagnosticWarnings(diagnostics)] };
       }
 
       await page.goto(preview.url);
@@ -92,8 +108,9 @@ export async function renderCard(project: CardProject, options: PreviewOptions):
       const result = await bounded(page.evaluate(async input => {
         try {
           const editor = (window as unknown as { localCardKit: EditorApi }).localCardKit;
+          const diagnosticStart = editor.diagnostics.length;
           const compiled = await editor.load(input.card, input.variables, input.locale);
-          return { compiled, exported: editor.exportProject().card };
+          return { compiled, exported: editor.exportProject().card, diagnosticStart };
         } catch (error) {
           const failure = error as Error & { code?: string; details?: unknown };
           return { error: { code: failure.code ?? 'render_failed', message: failure.message, details: failure.details } };
@@ -110,7 +127,9 @@ export async function renderCard(project: CardProject, options: PreviewOptions):
       // CardKit applies its dark token palette through this attribute, not the browser color scheme.
       if (theme === 'dark') await card.evaluate(element => element.setAttribute('_pp-theme', 'dark'));
       await frame.locator('html').evaluate(() => document.fonts.ready);
-      return { png: await card.screenshot({ type: 'png' }), renderer, compiled: result.compiled!, warnings: conversionWarnings(project.card, result.exported) };
+      const png = await card.screenshot({ type: 'png' });
+      const diagnostics = await page.evaluate(start => (window as unknown as { localCardKit: EditorApi }).localCardKit.diagnostics.slice(start), result.diagnosticStart);
+      return { png, renderer, compiled: result.compiled!, warnings: [...conversionWarnings(project.card, result.exported), ...resourceWarnings(result.compiled!), ...diagnosticWarnings(diagnostics)] };
     } finally {
       await browser.close();
     }

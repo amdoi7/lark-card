@@ -10,7 +10,10 @@ test('batch renders both layouts and records failed inputs without overwriting f
   const dir = await mkdtemp(join(tmpdir(), 'lark-card-batch-'));
   try {
     const input = join(dir, 'card.json'), invalid = join(dir, 'invalid.json'), output = join(dir, 'output');
-    await writeFile(input, JSON.stringify({ schema: '2.0', body: { elements: [{ tag: 'markdown', content: 'Batch card' }] } }));
+    await writeFile(input, JSON.stringify({ schema: '2.0', body: { elements: [
+      { tag: 'markdown', content: 'Batch card' },
+      { tag: 'img', img_key: 'img_v2_nonexistent', alt: { tag: 'plain_text', content: 'Missing image' } },
+    ] } }));
     await writeFile(invalid, '{');
     const args = ['bun', cli, 'render-batch', input, invalid, '--output-dir', output];
     if (process.env.LARK_CARD_CHROME) args.push('--chrome', process.env.LARK_CARD_CHROME);
@@ -25,7 +28,7 @@ test('batch renders both layouts and records failed inputs without overwriting f
     expect(manifest.results[2].error?.code).toBe('card_json_invalid');
     for (const item of manifest.results.slice(0, 2)) {
       expect((await readFile(item.output)).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
-      expect(item.warnings).toEqual([]);
+      expect(item.warnings).toContainEqual({ code: 'resource_unresolved', resources: ['images'] });
     }
     expect(JSON.parse(await readFile(join(output, 'manifest.json'), 'utf8'))).toEqual(manifest);
     const again = Bun.spawn(args, { stdout: 'pipe', stderr: 'pipe' });

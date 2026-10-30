@@ -30,7 +30,7 @@ test('simulator ignores component-like tags inside opaque action values', async 
     value: { tag: 'not_a_component', nested: { tag: 'also_not_a_component' } },
   }] } } };
   const result = await render(project, { chrome: process.env.LARK_CARD_CHROME });
-  expect(result.warnings.some(warning => warning.tag === 'not_a_component' || warning.tag === 'also_not_a_component')).toBe(false);
+  expect(result.warnings.some(warning => warning.code === 'simulator_component_count_decreased' && (warning.tag === 'not_a_component' || warning.tag === 'also_not_a_component'))).toBe(false);
 }, 120000);
 
 test('simulator reports the path of a component dropped by editor conversion', async () => {
@@ -46,6 +46,23 @@ test('simulator reports the path of a component dropped by editor conversion', a
     exportedCount: 0,
     candidatePaths: ['card.body.elements[1]'],
   });
+}, 120000);
+
+const cardWithUnresolvedImage = { card: { schema: '2.0', body: { elements: [
+  { tag: 'markdown', content: 'Image below' },
+  { tag: 'img', img_key: 'img_v2_nonexistent', alt: { tag: 'plain_text', content: 'Missing image' } },
+] } } };
+
+// Regression: local renderers can produce PNGs while image resources are unavailable.
+test('simulator warns when image resources cannot be resolved', async () => {
+  const result = await render(cardWithUnresolvedImage, { chrome: process.env.LARK_CARD_CHROME });
+  expect(result.warnings).toContainEqual({ code: 'resource_unresolved', resources: ['images'] });
+  expect(result.warnings.some(warning => warning.code === 'renderer_diagnostic' && warning.operation === 'host.unavailable')).toBe(true);
+}, 120000);
+
+test('client warns when image resources cannot be resolved', async () => {
+  const result = await render(cardWithUnresolvedImage, { renderer: 'client', chrome: process.env.LARK_CARD_CHROME });
+  expect(result.warnings).toContainEqual({ code: 'resource_unresolved', resources: ['images'] });
 }, 120000);
 
 test('migrates an independent V1 project only with sharing consent', async () => {

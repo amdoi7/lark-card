@@ -67,6 +67,25 @@ test('render accepts card JSON and writes a PNG to stdout or a file', async () =
   }
 }, 120000);
 
+// Regression: missing image resources previously produced a PNG without a warning.
+test('render reports unresolved image resources on stderr', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lark-card-warning-'));
+  try {
+    const input = join(dir, 'card.json');
+    await writeFile(input, JSON.stringify({ schema: '2.0', body: { elements: [
+      { tag: 'markdown', content: 'Image below' },
+      { tag: 'img', img_key: 'img_v2_nonexistent', alt: { tag: 'plain_text', content: 'Missing image' } },
+    ] } }));
+    const child = Bun.spawn(['bun', cli, 'render', input, ...browserArgs], { stdout: 'pipe', stderr: 'pipe' });
+    const [png, stderr, code] = await Promise.all([new Response(child.stdout).arrayBuffer(), new Response(child.stderr).text(), child.exited]);
+    expect(code).toBe(0);
+    expect(Buffer.from(png).subarray(0, 8)).toEqual(signature);
+    expect(JSON.parse(stderr).warnings).toContainEqual({ code: 'resource_unresolved', resources: ['images'] });
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}, 120000);
+
 test('render refuses to overwrite an input file, including through a hard link', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'lark-card-test-'));
   try {
