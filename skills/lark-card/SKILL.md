@@ -6,7 +6,7 @@ compatibility: Requires Bun, Chromium, and prepared CardKit assets. The client r
 
 # Review Lark cards
 
-Run commands from the package root, two directories above this file. See `README.md` for installation instructions.
+Run commands from the package root, two directories above this file. See `README.md` for installation instructions. When editing card JSON 2.0 or diagnosing a layout, consult [card JSON reference](references/card-json.md) for field guidance and official documentation.
 
 ## Define coverage
 

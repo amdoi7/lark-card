@@ -89,4 +89,4 @@ The unit tests in `tests/unit` run without downloaded assets, browsers, or netwo
 
 ## Limits
 
-Import only trusted cards and variables. The local server listens on the loopback interface only and checks request origins. The local environment cannot resolve remote user avatars or image attachments. The mobile preview shows layout sizing rather than mobile device behavior. See `skills/lark-card/SKILL.md` for card review workflows. The project does not currently specify an open source license.
+Import only trusted cards and variables. The local server listens on the loopback interface only and checks request origins. The local environment cannot resolve remote user avatars or image attachments. The mobile preview shows layout sizing rather than mobile device behavior. See [card JSON reference](skills/lark-card/references/card-json.md) for editing guidance and [card review workflows](skills/lark-card/SKILL.md). The project does not currently specify an open source license.
