@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const cli = fileURLToPath(new URL('../../src/cli.ts', import.meta.url));
+const cli = fileURLToPath(new URL('../../src/cli/index.ts', import.meta.url));
 
 // Regression: a missing cache surfaced as a raw ENOENT (render) or a module-resolution error (compile).
 test('commands report assets_unavailable with the fix when the asset cache was never prepared', async () => {

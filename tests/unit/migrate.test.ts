@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { convertV1ToV2 } from '../../src/card/v1-to-v2.ts';
+import { convertV1ToV2 } from '../../src/core/migration.ts';
 
 const rejects = (run: () => unknown, code: string) =>
   expect(run).toThrow(expect.objectContaining({ code }));
@@ -9,7 +9,13 @@ test('V1 → V2 requires explicit consent to leave independent mode', () => {
     config: { update_multi: false },
     elements: [{ tag: 'markdown', content: 'Independent card' }],
   };
-  rejects(() => convertV1ToV2(card), 'migration_requires_shared');
+  expect(() => convertV1ToV2(card)).toThrow(
+    expect.objectContaining({
+      code: 'migration_requires_shared',
+      message:
+        'Version 1 cards default to independent mode. Pass --allow-shared to migrate to version 2.',
+    }),
+  );
   const migrated = convertV1ToV2(card, { allowShared: true });
   expect(migrated.card.schema).toBe('2.0');
   expect(migrated.card.config?.update_multi).toBe(true);
@@ -43,6 +49,48 @@ test('per-locale V1 content merges into i18n_content and the requested locale is
   const header = migrated.card.header as { title: { i18n_content: unknown } };
   expect(header.title.i18n_content).toEqual({ en_us: 'English title', zh_cn: '中文标题' });
   expect(body.elements[0].i18n_content).toEqual({ en_us: 'English body', zh_cn: '中文正文' });
+});
+
+test('locale merging compares opaque business payloads independently of object key order', () => {
+  const source = {
+    config: { update_multi: true },
+    i18n_elements: {
+      zh_cn: [
+        {
+          tag: 'button',
+          name: 'confirm',
+          value: { id: 1, nested: { enabled: false, roles: ['reviewer', 'owner'] } },
+        },
+      ],
+      en_us: [
+        {
+          tag: 'button',
+          name: 'confirm',
+          value: { nested: { roles: ['reviewer', 'owner'], enabled: false }, id: 1 },
+        },
+      ],
+    },
+  };
+  const original = structuredClone(source);
+  const result = convertV1ToV2(source);
+  expect(result.card.body?.elements).toEqual(source.i18n_elements.zh_cn);
+  expect(source).toEqual(original);
+});
+
+test.each([
+  ['scalar', { id: 2 }],
+  ['missing field', {}],
+  ['null', { id: null }],
+  ['array', { id: [1] }],
+])('locale merging rejects a %s business payload difference', (_name, value) => {
+  const card = {
+    config: { update_multi: true },
+    i18n_elements: {
+      zh_cn: [{ tag: 'button', name: 'confirm', value: { id: 1 } }],
+      en_us: [{ tag: 'button', name: 'confirm', value }],
+    },
+  };
+  rejects(() => convertV1ToV2(card), 'migration_locale_structure_mismatch');
 });
 
 test('locales whose structure differs cannot be merged', () => {

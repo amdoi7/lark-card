@@ -4,7 +4,7 @@ import { get } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startPreviewServer } from '../src/preview/server.ts';
+import { startPreviewServer } from '../src/engine/preview/server.ts';
 
 test('editor binds locally and rejects cross-origin compilation', async () => {
   const server = await startPreviewServer({ port: 0 });

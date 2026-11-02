@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { extname } from 'node:path';
-import { CardError } from '../errors.ts';
+import { CardError } from '../core/errors.ts';
 import { readCachedAsset, type EditorAsset } from './cache.ts';
 
 const assets: EditorAsset[] = JSON.parse(

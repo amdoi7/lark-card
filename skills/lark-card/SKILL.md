@@ -15,7 +15,7 @@ When reviewing cards across a project, list static card JSON files and dynamic c
 ## Review layout
 
 ```sh
-bun src/cli.ts render-batch card-a.json card-b.json --output-dir previews
+bun src/cli/index.ts render-batch card-a.json card-b.json --output-dir previews
 ```
 
 The output directory must not exist before the command runs. Read `previews/manifest.json` for execution status and warnings. Open both PNG files for each rendered card. Inspect text clipping, button width, line wrapping, visual hierarchy, and the distance between inputs and buttons. Make sure shared submit buttons do not appear inside individual form fields.
@@ -23,8 +23,8 @@ The output directory must not exist before the command runs. Read `previews/mani
 For critical cards or unexpected layouts, compare the input JSON, the compiled output, and a client preview rendered by the local Lark application.
 
 ```sh
-bun src/cli.ts compile card.json > card-vr.json
-bun src/cli.ts render card.json --renderer client -o card-client-pc.png
+bun src/cli/index.ts compile card.json > card-vr.json
+bun src/cli/index.ts render card.json --renderer client -o card-client-pc.png
 ```
 
 In known local runs, the client renderer has dropped link text inside Markdown, and the simulator has dropped collapsible panels. Do not modify a business card solely because a local renderer drops an element. Local previews do not replace checks on real clients or physical mobile devices.
@@ -32,7 +32,7 @@ In known local runs, the client renderer has dropped link text inside Markdown, 
 ## Migrate version 1 cards
 
 ```sh
-bun src/cli.ts migrate legacy.json > card-v2.json
+bun src/cli/index.ts migrate legacy.json > card-v2.json
 ```
 
 Version 2 cards support only shared mode, where actions update the card for every member of a conversation. If `migrate` returns `migration_requires_shared`, confirm with the user before passing `--allow-shared`. Review warnings written to standard error for adjusted notes, cropped images, and removed fallback blocks. Render the migrated card before treating it as equivalent to the original. If migration returns `migration_requires_manual` or `migration_locale_structure_mismatch`, report the field path to the user instead of guessing a fix.

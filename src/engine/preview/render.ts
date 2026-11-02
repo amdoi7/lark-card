@@ -1,7 +1,7 @@
-import { chromium, type Page } from 'playwright-core';
-import type { CardProject } from '../card/input.ts';
-import type { CompiledCard } from '../compiler/compile.ts';
-import { asCardError, CardError } from '../errors.ts';
+import type { Page } from 'playwright-core';
+import type { CardProject } from '../../core/schema.ts';
+import type { CompiledCard } from '../compiler/index.ts';
+import { asCardError, CardError } from '../../core/errors.ts';
 import {
   diagnosticWarnings,
   conversionWarnings,
@@ -9,16 +9,8 @@ import {
   type Diagnostic,
   type RenderWarning,
 } from './warnings.ts';
-import { startPreviewServer } from './server.ts';
 
 export type { RenderWarning } from './warnings.ts';
-
-export type RenderOptions = {
-  locale?: string;
-  platform?: 'pc' | 'ios';
-  theme?: 'light' | 'dark';
-  chrome?: string;
-} & ({ renderer?: 'simulator'; webcontent?: never } | { renderer: 'client'; webcontent?: string });
 
 export type RenderResult = {
   png: Buffer;
@@ -60,7 +52,12 @@ async function waitForBootstrap(page: Page, selector: string) {
     throw Error(`preview_bootstrap_failed message=${JSON.stringify(status.message)}`);
 }
 
-type RenderSettings = { locale: string; platform: 'pc' | 'ios'; theme: 'light' | 'dark' };
+export type RenderSettings = {
+  renderer: 'simulator' | 'client';
+  locale: string;
+  platform: 'pc' | 'ios';
+  theme: 'light' | 'dark';
+};
 
 async function renderClient(
   page: Page,
@@ -191,72 +188,16 @@ async function renderSimulator(
   };
 }
 
-export type RenderSession = {
-  render(project: CardProject, platform: 'pc' | 'ios'): Promise<RenderResult>;
-  close(): Promise<void>;
-};
-
-/** One preview server, browser and context for many renders; each render gets a fresh page so editor state never leaks between cards. */
-export async function openRenderSession(options: RenderOptions = {}): Promise<RenderSession> {
-  const renderer = options.renderer ?? 'simulator';
-  const base = { locale: options.locale ?? 'zh_cn', theme: options.theme ?? 'light' } as const;
-  const server = await startPreviewServer({ port: 0, renderer, webcontent: options.webcontent });
-  let browser;
-  try {
-    // Playwright's own signal handlers attempt a graceful close that can hang mid-render, so a killed
-    // batch never exits. Exit directly instead: Playwright's 'exit' hook still kills Chromium.
-    browser = await chromium.launch({
-      headless: true,
-      executablePath: options.chrome,
-      handleSIGINT: false,
-      handleSIGTERM: false,
-      handleSIGHUP: false,
-    });
-  } catch (error) {
-    await server.close();
-    throw error;
-  }
-  const signals = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
-  const exitOnSignal = (signal: NodeJS.Signals) =>
-    process.exit(128 + (signal === 'SIGINT' ? 2 : signal === 'SIGTERM' ? 15 : 1));
-  for (const signal of signals) process.once(signal, exitOnSignal);
-  const context = await browser.newContext({
-    viewport: { width: 1440, height: 1100 },
-    deviceScaleFactor: 1,
-  });
-  return {
-    async render(project, platform) {
-      const page = await context.newPage();
-      try {
-        return await (renderer === 'client' ? renderClient : renderSimulator)(
-          page,
-          server.url,
-          project,
-          { ...base, platform },
-        );
-      } finally {
-        await page.close();
-      }
-    },
-    async close() {
-      for (const signal of signals) process.off(signal, exitOnSignal);
-      try {
-        await browser.close();
-      } finally {
-        await server.close();
-      }
-    },
-  };
-}
-
-export async function render(
+export function renderPage(
+  page: Page,
+  url: string,
   project: CardProject,
-  options: RenderOptions = {},
+  settings: RenderSettings,
 ): Promise<RenderResult> {
-  const session = await openRenderSession(options);
-  try {
-    return await session.render(project, options.platform ?? 'pc');
-  } finally {
-    await session.close();
-  }
+  return (settings.renderer === 'client' ? renderClient : renderSimulator)(
+    page,
+    url,
+    project,
+    settings,
+  );
 }

@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { CardError } from '../errors.ts';
+import { CardError } from '../core/errors.ts';
 
 export type EditorAsset = {
   file: string;

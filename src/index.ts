@@ -1,16 +1,11 @@
-import type { CardProject } from './card/input.ts';
-import { compileCard, type CompiledCard } from './compiler/compile.ts';
-import { migrateCard } from './migrate.ts';
+import type { CardProject } from './core/schema.ts';
+import { compileCard, migrateCard, type CompiledCard } from './engine/compiler/index.ts';
 
-export type { Card, CardProject } from './card/input.ts';
-export type { CompiledCard } from './compiler/compile.ts';
-export { CardError, type ErrorCode } from './errors.ts';
-export {
-  render,
-  type RenderResult,
-  type RenderOptions,
-  type RenderWarning,
-} from './preview/render.ts';
+export type { Card, CardProject } from './core/schema.ts';
+export type { CompiledCard };
+export type { RenderResult, RenderWarning } from './engine/preview/render.ts';
+export { CardError, type ErrorCode } from './core/errors.ts';
+export { render, type RenderOptions } from './engine/preview/session.ts';
 
 export function compile(project: CardProject, locale = 'zh_cn'): Promise<CompiledCard> {
   return compileCard(project.card, locale, project.variables);

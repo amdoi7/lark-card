@@ -4,15 +4,15 @@ import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { dirname, extname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compilerVersion, readCachedAsset, remoteAssets } from '../assets/cache.ts';
-import { editorStyles, loadEditorAssets } from '../assets/editor-vendor.ts';
-import { supportedLocales } from '../card/input.ts';
-import { compileCard } from '../compiler/compile.ts';
-import { asCardError, CardError, httpStatus } from '../errors.ts';
-import { migrateCard } from '../migrate.ts';
+import { compilerVersion, readCachedAsset, remoteAssets } from '../../assets/cache.ts';
+import { editorStyles, loadEditorAssets } from '../../assets/editor-vendor.ts';
+import { supportedLocales } from '../../core/locales.ts';
+import { compileCard, migrateCard } from '../compiler/index.ts';
+import { asCardError, CardError } from '../../core/errors.ts';
+import { httpStatus } from './http-errors.ts';
 import { Asar } from './asar.ts';
 
-const sourceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const sourceRoot = join(dirname(fileURLToPath(import.meta.url)), '../..');
 const root = join(sourceRoot, '..');
 const defaultWebcontent =
   '/Applications/Lark.app/Contents/Frameworks/Lark Framework.framework/Resources/webcontent';
@@ -46,8 +46,9 @@ const examples = new Map(
 );
 // Modules the browser imports, served at their source path so relative imports resolve unchanged.
 const browserModules = [
-  'card/input.ts',
-  'errors.ts',
+  'core/schema.ts',
+  'core/locales.ts',
+  'core/errors.ts',
   'browser/editor.ts',
   'browser/runtime.ts',
   'browser/webpack.ts',

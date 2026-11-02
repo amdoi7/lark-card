@@ -2,7 +2,7 @@ import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { chromium, type Page } from 'playwright-core';
-import { startPreviewServer } from '../src/preview/server.ts';
+import { startPreviewServer } from '../src/engine/preview/server.ts';
 
 type UiContext = {
   page: Page;

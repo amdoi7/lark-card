@@ -63,7 +63,7 @@
 ## 修改后验证
 
 1. 保持 `name`、`value`、链接、表单边界、按钮行为及权限不变，除非明确要求修改业务行为。表单内交互组件的 `name` 影响回传；表单需要提交按钮，详见[表单容器](https://open.feishu.cn/document/uAjLw4CM/ukzMukzMukzM/feishu-cards/card-json-v2-components/containers/form-container)。
-2. 在项目根目录运行 `bun src/cli.ts render-batch card.json --output-dir previews`，输出目录必须不存在。查看 `previews/manifest.json` 和桌面、移动端两张图；需要时换一个新目录重复。对于动态生成的卡片，先导出各状态的 JSON。
-3. 编译失败时查看错误的 `code` 和组件 `details`；出现 `resource_unresolved` 或 `simulator_component_count_decreased` 时，先排查本地资源或模拟器漏渲染，必要时用 `bun src/cli.ts render card.json --renderer client -o card-client.png` 对比，不要仅凭缺失元素修改业务卡片。后者的路径是该类型组件的候选路径，不一定全部是丢失的组件。
+2. 在项目根目录运行 `bun src/cli/index.ts render-batch card.json --output-dir previews`，输出目录必须不存在。查看 `previews/manifest.json` 和桌面、移动端两张图；需要时换一个新目录重复。对于动态生成的卡片，先导出各状态的 JSON。
+3. 编译失败时查看错误的 `code` 和组件 `details`；出现 `resource_unresolved` 或 `simulator_component_count_decreased` 时，先排查本地资源或模拟器漏渲染，必要时用 `bun src/cli/index.ts render card.json --renderer client -o card-client.png` 对比，不要仅凭缺失元素修改业务卡片。后者的路径是该类型组件的候选路径，不一定全部是丢失的组件。
 
 本地图片只能检查布局，不能证明真实移动设备表现、链接、回调、表单提交或权限正确；这些需要在真实客户端及业务环境中验证。更多预览限制和排错见 [skill](../SKILL.md)。

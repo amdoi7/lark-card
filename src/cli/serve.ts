@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { parseArgs } from 'node:util';
-import { asCardError, CardError } from './errors.ts';
-import { startPreviewServer } from './preview/server.ts';
+import { asCardError, CardError } from '../core/errors.ts';
+import { startPreviewServer } from '../engine/preview/server.ts';
 
 try {
   const { values } = parseArgs({

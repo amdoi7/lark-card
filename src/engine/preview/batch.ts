@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { link, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { parseCard, type CardProject } from './card/input.ts';
-import { asCardError, CardError, type ErrorCode } from './errors.ts';
-import { openRenderSession, type RenderOptions } from './preview/render.ts';
+import { parseCard, type CardProject } from '../../core/schema.ts';
+import { asCardError, CardError, type ErrorCode } from '../../core/errors.ts';
+import { openRenderSession, type RenderOptions } from './session.ts';
 
 type BatchResult = {
   input: string;
@@ -49,29 +49,25 @@ export async function renderBatch(inputs: string[], directory: string, options: 
       throw new CardError('batch_output_exists', `Batch manifest already exists: ${manifestPath}`);
     throw error;
   }
-  const session = await openRenderSession(options);
+  await using session = await openRenderSession(options);
   const parsed = new Map<string, Promise<CardProject>>();
-  try {
-    for (const result of results) {
-      try {
-        if (!parsed.has(result.input))
-          parsed.set(
-            result.input,
-            readFile(result.input, 'utf8').then((text) => ({ card: parseCard(text) })),
-          );
-        const preview = await session.render(await parsed.get(result.input)!, result.platform);
-        result.warnings = [...preview.compiled.warnings, ...preview.warnings];
-        await writeFile(result.output, preview.png, { flag: 'wx' });
-        result.status = 'ok';
-      } catch (error) {
-        const failure = asCardError(error, 'render_failed');
-        result.status = 'error';
-        result.error = { code: failure.code, message: failure.message };
-      }
-      await writeManifest('replace');
+  for (const result of results) {
+    try {
+      if (!parsed.has(result.input))
+        parsed.set(
+          result.input,
+          readFile(result.input, 'utf8').then((text) => ({ card: parseCard(text) })),
+        );
+      const preview = await session.render(await parsed.get(result.input)!, result.platform);
+      result.warnings = [...preview.compiled.warnings, ...preview.warnings];
+      await writeFile(result.output, preview.png, { flag: 'wx' });
+      result.status = 'ok';
+    } catch (error) {
+      const failure = asCardError(error, 'render_failed');
+      result.status = 'error';
+      result.error = { code: failure.code, message: failure.message };
     }
-  } finally {
-    await session.close();
+    await writeManifest('replace');
   }
   return manifest;
 }

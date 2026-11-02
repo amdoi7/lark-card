@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
+const cli = fileURLToPath(new URL('../src/cli/index.ts', import.meta.url));
 const browserArgs = process.env.LARK_CARD_CHROME ? ['--chrome', process.env.LARK_CARD_CHROME] : [];
 const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 const card = {
@@ -12,6 +12,40 @@ const card = {
   header: { title: { tag: 'plain_text', content: 'Hello Lark' }, template: 'blue' },
   body: { elements: [{ tag: 'markdown', content: 'Preview from JSON' }] },
 };
+
+test('the package bin prints help without prepared assets or a browser', async () => {
+  // Arrange
+  const directory = await mkdtemp(join(tmpdir(), 'lark-card-help-'));
+  await using resources = new AsyncDisposableStack();
+  resources.defer(() => rm(directory, { recursive: true, force: true }));
+  const root = new URL('../', import.meta.url);
+  const manifest = await Bun.file(new URL('package.json', root)).json();
+  const entry = fileURLToPath(new URL(manifest.bin['lark-card'], root));
+  const child = Bun.spawn(['bun', entry, '--help'], {
+    env: { ...process.env, LARK_CARD_CACHE: directory },
+    stdout: 'pipe',
+    stderr: 'pipe',
+    timeout: 15000,
+    killSignal: 'SIGKILL',
+  });
+  try {
+    // Act
+    const [stdout, stderr, exitCode] = await Promise.all([
+      new Response(child.stdout).text(),
+      new Response(child.stderr).text(),
+      child.exited,
+    ]);
+    // Assert
+    expect(child.signalCode).toBeNull();
+    expect({ stderr, exitCode }).toEqual({ stderr: '', exitCode: 0 });
+    expect(stdout).toContain('lark-card <command>');
+    expect(stdout).toContain('render-batch <files...>');
+    expect(stdout).toContain('Compile and batch warnings are in stdout JSON');
+  } finally {
+    if (child.exitCode === null) child.kill('SIGKILL');
+    await child.exited;
+  }
+});
 
 test('compile writes a machine-readable CardKit result', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'lark-card-test-'));

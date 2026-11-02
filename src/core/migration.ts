@@ -1,14 +1,7 @@
-import { isDeepStrictEqual } from 'node:util';
-import { CardError } from '../errors.ts';
-import {
-  assertLocale,
-  v1Locales,
-  contentLocales,
-  toCompilerInput,
-  requireSchema,
-  transformNodes,
-  type CardDocument,
-} from './input.ts';
+import { CardError } from './errors.ts';
+import { toCompilerInput } from './input.ts';
+import { assertLocale, v1Locales, contentLocales } from './locales.ts';
+import { requireSchema, transformNodes, type CardDocument } from './schema.ts';
 
 type CardNode = Record<string, unknown>;
 type MigrationWarning = {
@@ -18,6 +11,19 @@ type MigrationWarning = {
   requested?: string;
   selected?: string;
 };
+
+function equalJson(left: unknown, right: unknown): boolean {
+  if (Object.is(left, right)) return true;
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
+  if (Array.isArray(left) !== Array.isArray(right)) return false;
+  if (Array.isArray(left) && Array.isArray(right) && left.length !== right.length) return false;
+  const a = left as CardNode,
+    b = right as CardNode;
+  return (
+    Object.keys(a).length === Object.keys(b).length &&
+    Object.keys(a).every((key) => Object.hasOwn(b, key) && equalJson(a[key], b[key]))
+  );
+}
 
 function localizable(node: CardNode, key: string): string | undefined {
   if (key === 'content' && ['plain_text', 'lark_md', 'markdown'].includes(node.tag as string))
@@ -45,18 +51,22 @@ function convertVariant(
     delete card.config.wide_screen_mode;
     warnings.push({
       code: 'wide_screen_removed',
-      message: '2.0 使用统一布局，不保留 wide_screen_mode',
+      message: 'Version 2 uses a unified layout and does not retain wide_screen_mode.',
     });
   }
   return transformNodes(card, (node, path) => {
     if (Object.hasOwn(node, 'fallback')) {
       delete node.fallback;
-      warnings.push({ code: 'fallback_removed', path, message: '2.0 不支持旧版自定义降级规则' });
+      warnings.push({
+        code: 'fallback_removed',
+        path,
+        message: 'Version 2 does not support legacy custom fallback rules.',
+      });
     }
     if (node.tag === 'markdown' && node.href && Object.keys(node.href as object).length) {
       throw new CardError(
         'migration_requires_manual',
-        `旧版 Markdown href 需要改写为 link 标签 path=${path}`,
+        `Legacy Markdown href must be rewritten as link tags. Path: ${path}.`,
       );
     }
     for (const key of ['vertical_spacing', 'horizontal_spacing']) {
@@ -79,14 +89,15 @@ function convertVariant(
       if (node.margin !== undefined)
         throw new CardError(
           'migration_requires_manual',
-          `通栏图片已有 margin，需要人工核对 path=${path}`,
+          `A full-width image already has a margin and requires manual review. Path: ${path}.`,
         );
       node.size = 'crop_center';
       node.margin = '4px -12px';
       warnings.push({
         code: 'image_layout_changed',
         path,
-        message: '通栏图片按官方迁移示例改为负 margin，需要核对裁切效果',
+        message:
+          'The full-width image uses a negative margin following the official migration example. Review its cropping.',
       });
     }
     if (localize) {
@@ -98,11 +109,12 @@ function convertVariant(
     }
     if (node.tag === 'note') {
       if (!Array.isArray(node.elements))
-        throw new CardError('card_json_invalid', `note.elements 必须是数组 path=${path}`);
+        throw new CardError('card_json_invalid', `note.elements must be an array. Path: ${path}.`);
       warnings.push({
         code: 'note_layout_changed',
         path,
-        message: '旧版备注拆为小号灰色文本或图片，需核对组合布局',
+        message:
+          'The legacy note was split into small grey text or images. Review the combined layout.',
       });
       return node.elements.map((child: CardNode) => {
         if (child.tag === 'plain_text')
@@ -112,7 +124,7 @@ function convertVariant(
         if (child.tag === 'img') return child;
         throw new CardError(
           'migration_requires_manual',
-          `备注包含未适配元素 tag=${child.tag} path=${path}`,
+          `The note contains an unsupported element. Tag: ${child.tag}. Path: ${path}.`,
         );
       });
     }
@@ -120,7 +132,10 @@ function convertVariant(
       const modes = { flow: 'flow', bisected: 'bisect', trisection: 'trisect' };
       const layout = (node.layout ?? 'flow') as string;
       if (!Object.hasOwn(modes, layout) || !Array.isArray(node.actions))
-        throw new CardError('migration_requires_manual', `交互模块布局无法转换 path=${path}`);
+        throw new CardError(
+          'migration_requires_manual',
+          `The action module layout cannot be converted automatically. Path: ${path}.`,
+        );
       const { tag: _tag, actions, layout: _layout, ...rest } = node;
       return {
         ...rest,
@@ -143,10 +158,10 @@ function mergeLocales(base: unknown, other: unknown, locale: string, path = 'car
   const mismatch = (): never => {
     throw new CardError(
       'migration_locale_structure_mismatch',
-      `不同语言存在非文本结构差异 locale=${locale} path=${path}；不能自动合并为 2.0`,
+      `Non-text structure differs between locales and cannot be merged into version 2. Locale: ${locale}. Path: ${path}.`,
     );
   };
-  if (isDeepStrictEqual(base, other)) return base;
+  if (equalJson(base, other)) return base;
   if (Array.isArray(base) && Array.isArray(other)) {
     if (base.length !== other.length) mismatch();
     return base.map((item, index) => mergeLocales(item, other[index], locale, `${path}[${index}]`));
@@ -170,7 +185,7 @@ function mergeLocales(base: unknown, other: unknown, locale: string, path = 'car
         result[key] = structuredClone(left[key] ?? right[key]);
       else mismatch();
     } else if (['value', 'behaviors'].includes(key)) {
-      if (!isDeepStrictEqual(left[key], right[key])) mismatch();
+      if (!equalJson(left[key], right[key])) mismatch();
     } else result[key] = mergeLocales(left[key], right[key], locale, `${path}.${key}`);
   }
   return result;
@@ -190,25 +205,30 @@ export function convertV1ToV2(
   { locale = 'zh_cn', allowShared = false }: { locale?: string; allowShared?: boolean } = {},
 ): V2Conversion {
   if (requireSchema(input) !== '1.0')
-    throw new CardError('migration_source_invalid', 'V1→V2 转换只接受 1.0 卡片');
+    throw new CardError(
+      'migration_source_invalid',
+      'Migration to version 2 only accepts version 1 cards.',
+    );
   const source = input as CardDocument;
   if (typeof allowShared !== 'boolean')
-    throw new CardError('card_json_invalid', 'allowShared 必须是布尔值');
+    throw new CardError('card_json_invalid', 'allowShared must be a boolean.');
   const warnings: MigrationWarning[] = [
     {
       code: 'interaction_lifetime_changed',
-      message: '2.0 的可交互/可更新时间统一为 14 天；旧客户端要求至少 7.20',
+      message:
+        'Version 2 cards can be interacted with and updated for 14 days. Client version 7.20 or later is required.',
     },
   ];
   if (source.config?.update_multi !== true) {
     if (!allowShared)
       throw new CardError(
         'migration_requires_shared',
-        'V1 默认为独享卡片；2.0 只支持共享卡片。请明确允许切换共享模式后再迁移',
+        'Version 1 cards default to independent mode. Pass --allow-shared to migrate to version 2.',
       );
     warnings.push({
       code: 'sharing_changed',
-      message: '已按显式授权将独享/默认模式改为 update_multi=true',
+      message:
+        'Independent or default mode was changed to update_multi=true with explicit consent.',
     });
   }
   const globalLocales = v1Locales(source);

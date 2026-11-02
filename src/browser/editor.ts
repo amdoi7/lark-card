@@ -1,6 +1,7 @@
 import { modules } from '/editor-registry.mjs';
 import { createRequire } from './webpack.ts';
-import { contentLocales, requireSchema, type CardDocument } from '../card/input.ts';
+import { contentLocales } from '../core/locales.ts';
+import { requireSchema, type CardDocument } from '../core/schema.ts';
 
 type CompiledCard = {
   card: { schema: string; newBody: { property: { elements: { property: unknown }[] } } };

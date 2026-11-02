@@ -3,7 +3,7 @@ import {
   conversionWarnings,
   diagnosticWarnings,
   resourceWarnings,
-} from '../../src/preview/warnings.ts';
+} from '../../src/engine/preview/warnings.ts';
 
 test('reports components lost in the editor round trip, with their input paths', () => {
   const input = {

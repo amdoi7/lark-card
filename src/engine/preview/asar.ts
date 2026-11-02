@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { CardError } from '../errors.ts';
+import { CardError } from '../../core/errors.ts';
 
 type AsarEntry = {
   files?: Record<string, AsarEntry>;

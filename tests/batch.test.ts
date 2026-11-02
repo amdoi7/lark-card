@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const cli = fileURLToPath(new URL('../src/cli.ts', import.meta.url));
+const cli = fileURLToPath(new URL('../src/cli/index.ts', import.meta.url));
 
 test('batch renders both layouts and records failed inputs without overwriting files', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'lark-card-batch-'));

@@ -1,6 +1,8 @@
 import { expect, test } from 'bun:test';
-import { assertLocale, parseCard, toCompilerInput } from '../../src/card/input.ts';
-import { CardError } from '../../src/errors.ts';
+import { assertLocale } from '../../src/core/locales.ts';
+import { parseCard } from '../../src/core/schema.ts';
+import { toCompilerInput } from '../../src/core/input.ts';
+import { CardError } from '../../src/core/errors.ts';
 
 test('parses official V1 and V2 card objects without changing their content', () => {
   expect(parseCard('{"elements":[]}')).toEqual({ elements: [] });
@@ -10,11 +12,27 @@ test('parses official V1 and V2 card objects without changing their content', ()
   });
 });
 
-test('rejects malformed JSON, non-object values and unsupported schemas with card_json_invalid', () => {
-  for (const input of ['{', 'null', '[]', '"card"', '{"schema":"3.0"}']) {
-    expect(() => parseCard(input)).toThrow(expect.objectContaining({ code: 'card_json_invalid' }));
-    expect(() => parseCard(input)).toThrow(CardError);
-  }
+test.each([
+  ['malformed JSON', '{', 'Input must be valid JSON.'],
+  ['null', 'null', 'Card JSON must be an object.'],
+  ['array', '[]', 'Card JSON must be an object.'],
+  ['string', '"card"', 'Card JSON must be an object.'],
+  ['unsupported schema', '{"schema":"3.0"}', 'Unsupported card schema: 3.0.'],
+])('rejects %s with a stable code and an English message', (_name, input, message) => {
+  expect(() => parseCard(input)).toThrow(
+    expect.objectContaining({ code: 'card_json_invalid', message }),
+  );
+  expect(() => parseCard(input)).toThrow(CardError);
+});
+
+test.each([
+  ['locale map', { i18n_elements: [] }, 'i18n_elements must map locales to content.'],
+  ['localized elements', { i18n_elements: { en_us: {} } }, 'i18n_elements.en_us must be an array.'],
+  ['elements', { elements: {} }, 'Card elements must be an array.'],
+])('rejects an invalid V1 %s before compilation', (_name, card, message) => {
+  expect(() => toCompilerInput(card)).toThrow(
+    expect.objectContaining({ code: 'card_json_invalid', message }),
+  );
 });
 
 test('locale validation has one owner and one code', () => {

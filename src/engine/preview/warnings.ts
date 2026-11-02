@@ -1,5 +1,5 @@
-import { transformNodes } from '../card/input.ts';
-import type { CompiledCard } from '../compiler/compile.ts';
+import { transformNodes } from '../../core/schema.ts';
+import type { CompiledCard } from '../compiler/index.ts';
 
 export type Diagnostic = { operation: string; detail: unknown };
 
