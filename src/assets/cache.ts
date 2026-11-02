@@ -5,16 +5,29 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { CardError } from '../errors.ts';
 
-export type EditorAsset = { file: string; url: string; route: string; kind: string; sha256: string };
+export type EditorAsset = {
+  file: string;
+  url: string;
+  route: string;
+  kind: string;
+  sha256: string;
+};
 
 export async function ensureAsset(
   asset: { file: string; url: string; sha256: string },
-  options: { timeout: number; downloadError(status: number): string; integrityError(target: string, actual: string): string },
+  options: {
+    timeout: number;
+    downloadError(status: number): string;
+    integrityError(target: string, actual: string): string;
+  },
 ) {
   const target = join(cacheDirectory, asset.file);
   let data: Buffer | undefined;
-  try { data = await readFile(target); }
-  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
+  try {
+    data = await readFile(target);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
   if (!data) {
     const response = await fetch(asset.url, { signal: AbortSignal.timeout(options.timeout) });
     if (!response.ok) throw Error(options.downloadError(response.status));
@@ -32,7 +45,11 @@ export const cacheDirectory = process.env.LARK_CARD_CACHE || join(homedir(), '.c
 // Path of a file that `bun run setup-assets` prepared; the only place that reports a missing cache.
 export function cachedAssetPath(file: string) {
   const path = join(cacheDirectory, file);
-  if (!existsSync(path)) throw new CardError('assets_unavailable', `asset_cache_unavailable file=${file} action="bun run setup-assets"`);
+  if (!existsSync(path))
+    throw new CardError(
+      'assets_unavailable',
+      `asset_cache_unavailable file=${file} action="bun run setup-assets"`,
+    );
   return path;
 }
 

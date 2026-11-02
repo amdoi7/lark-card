@@ -8,13 +8,18 @@ async function invoke(args: string[], input: string) {
   child.stdin.write(input);
   child.stdin.end();
   const [stdout, stderr, code] = await Promise.all([
-    new Response(child.stdout).text(), new Response(child.stderr).text(), child.exited,
+    new Response(child.stdout).text(),
+    new Response(child.stderr).text(),
+    child.exited,
   ]);
   return { stdout, stderr, code };
 }
 
 test('migrated Card JSON can be piped into compile', async () => {
-  const input = JSON.stringify({ config: { update_multi: true }, elements: [{ tag: 'markdown', content: 'Piped card' }] });
+  const input = JSON.stringify({
+    config: { update_multi: true },
+    elements: [{ tag: 'markdown', content: 'Piped card' }],
+  });
   const migrated = await invoke(['migrate', '-'], input);
   expect(migrated.code).toBe(0);
   expect(JSON.parse(migrated.stdout).schema).toBe('2.0');

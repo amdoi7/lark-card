@@ -42,7 +42,15 @@ export function httpStatus(code: ErrorCode): number {
 // everything else is reported under `fallback`.
 export function asCardError(error: unknown, fallback: ErrorCode): CardError {
   if (error instanceof CardError) return error;
-  const { code, message, details } = error as { code?: unknown; message?: unknown; details?: unknown };
+  const { code, message, details } = error as {
+    code?: unknown;
+    message?: unknown;
+    details?: unknown;
+  };
   const known = typeof code === 'string' && Object.hasOwn(statuses, code);
-  return new CardError(known ? code as ErrorCode : fallback, typeof message === 'string' ? message : String(error), details);
+  return new CardError(
+    known ? (code as ErrorCode) : fallback,
+    typeof message === 'string' ? message : String(error),
+    details,
+  );
 }

@@ -79,11 +79,16 @@ On failure, commands print a JSON object to standard error and exit with code 1.
 | `src/preview/` | Implements the local HTTP server, simulator and client renderers, and preview warning detection. |
 | `src/browser/` | Contains browser scripts for the visual editor and preview pages. |
 
+Development uses the TypeScript 7 native compiler, Oxfmt for formatting, and Oxlint for static linting. Dependencies are pinned in `package.json` and `bun.lock`.
+
 ```sh
-bun run check
+bun run format       # Format TypeScript sources/tests and tooling JSON.
+bun run check        # Check formatting, reject lint warnings, and type-check.
 bun test tests/unit
 bun test tests
 ```
+
+Run `bun run format:check`, `bun run lint`, or `bun run typecheck` for an individual gate. CI runs the same `bun run check` command. Formatting does not rewrite browser HTML, generated asset manifests, or documentation.
 
 The unit tests in `tests/unit` run without downloaded assets, browsers, or network access. Continuous integration runs this suite. The full test suite in `tests` requires prepared assets and Chromium. Client renderer tests also require Lark installed locally. Set `LARK_CARD_CHROME` to specify a Chromium executable.
 

@@ -18,10 +18,15 @@ export class Asar {
 
   constructor(filename: string) {
     this.data = readFileSync(filename);
-    if (this.data.length < 16) throw new CardError('client_unavailable', `asar_header_invalid file=${filename}`);
+    if (this.data.length < 16)
+      throw new CardError('client_unavailable', `asar_header_invalid file=${filename}`);
     const headerSize = this.data.readUInt32LE(12);
     this.base = 8 + this.data.readUInt32LE(4);
-    if (this.data.readUInt32LE(0) !== 4 || headerSize > this.base - 16 || this.base > this.data.length) {
+    if (
+      this.data.readUInt32LE(0) !== 4 ||
+      headerSize > this.base - 16 ||
+      this.base > this.data.length
+    ) {
       throw new CardError('client_unavailable', `asar_header_invalid file=${filename}`);
     }
     const header = JSON.parse(this.data.subarray(16, 16 + headerSize).toString());
@@ -39,13 +44,23 @@ export class Asar {
   read(path: string): Buffer | undefined {
     const entry = this.files.get(path);
     if (!entry) return undefined;
-    const offset = Number(entry.offset), size = entry.size;
-    if (!Number.isSafeInteger(offset) || !Number.isSafeInteger(size) || offset < 0 || size < 0 || this.base + offset + size > this.data.length) {
+    const offset = Number(entry.offset),
+      size = entry.size;
+    if (
+      !Number.isSafeInteger(offset) ||
+      !Number.isSafeInteger(size) ||
+      offset < 0 ||
+      size < 0 ||
+      this.base + offset + size > this.data.length
+    ) {
       throw new CardError('client_unavailable', `asar_entry_invalid path=${path}`);
     }
     const bytes = this.data.subarray(this.base + offset, this.base + offset + size);
     const integrity = entry.integrity;
-    if (integrity?.algorithm === 'SHA256' && createHash('sha256').update(bytes).digest('hex') !== integrity.hash) {
+    if (
+      integrity?.algorithm === 'SHA256' &&
+      createHash('sha256').update(bytes).digest('hex') !== integrity.hash
+    ) {
       throw new CardError('client_unavailable', `asar_integrity_mismatch path=${path}`);
     }
     return bytes;

@@ -13,7 +13,8 @@ type EditorHost = Window & {
   frame.localCardKitHostReady = true;
   frame.NCLC_PLUGIN_EXTERNALS = new Map();
   const externals = host.PLUGIN_MANAGER_EXTERNALS;
-  for (const [index, [name, value]] of Object.entries(externals).entries()) (frame as unknown as Record<string, unknown>)[`${name}_${index}`] = value;
+  for (const [index, [name, value]] of Object.entries(externals).entries())
+    (frame as unknown as Record<string, unknown>)[`${name}_${index}`] = value;
   Object.assign(frame, {
     React: externals.react,
     ReactDOM: externals['react-dom'],
@@ -24,9 +25,13 @@ type EditorHost = Window & {
     Vchart: externals['@visactor/vchart'],
     CardBuilderSDKGlobalVar: host.CardBuilderSDKGlobalVar,
   });
-  frame.addEventListener('error', event => host.localCardKit.report('frame.error', { message: event.message }));
-  frame.addEventListener('unhandledrejection', event => {
+  frame.addEventListener('error', (event) =>
+    host.localCardKit.report('frame.error', { message: event.message }),
+  );
+  frame.addEventListener('unhandledrejection', (event) => {
     const error = event.reason?.error || event.reason;
-    host.localCardKit.report('frame.error', { message: error?.stack || error?.message || JSON.stringify(error) });
+    host.localCardKit.report('frame.error', {
+      message: error?.stack || error?.message || JSON.stringify(error),
+    });
   });
 })();

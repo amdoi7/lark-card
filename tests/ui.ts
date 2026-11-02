@@ -11,17 +11,34 @@ type UiContext = {
   requests: string[];
 };
 
-export async function verifyUi(path: '/' | '/preview', verify: (context: UiContext) => Promise<void>) {
-  const server = await startPreviewServer({ port: 0, renderer: path === '/preview' ? 'client' : 'simulator' });
+export async function verifyUi(
+  path: '/' | '/preview',
+  verify: (context: UiContext) => Promise<void>,
+) {
+  const server = await startPreviewServer({
+    port: 0,
+    renderer: path === '/preview' ? 'client' : 'simulator',
+  });
   try {
-    const browser = await chromium.launch({ headless: true, executablePath: process.env.LARK_CARD_CHROME });
+    const browser = await chromium.launch({
+      headless: true,
+      executablePath: process.env.LARK_CARD_CHROME,
+    });
     try {
-      const page = await browser.newPage({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 1 });
-      const failures: string[] = [], requests: string[] = [];
-      page.on('pageerror', error => failures.push(error.message));
-      page.on('requestfailed', request => failures.push(`${request.url()}: ${request.failure()?.errorText}`));
-      page.on('response', response => { if (response.status() >= 400) failures.push(`${response.status()} ${response.url()}`); });
-      page.on('request', request => requests.push(request.url()));
+      const page = await browser.newPage({
+        viewport: { width: 1440, height: 1100 },
+        deviceScaleFactor: 1,
+      });
+      const failures: string[] = [],
+        requests: string[] = [];
+      page.on('pageerror', (error) => failures.push(error.message));
+      page.on('requestfailed', (request) =>
+        failures.push(`${request.url()}: ${request.failure()?.errorText}`),
+      );
+      page.on('response', (response) => {
+        if (response.status() >= 400) failures.push(`${response.status()} ${response.url()}`);
+      });
+      page.on('request', (request) => requests.push(request.url()));
       try {
         await page.goto(server.url + path);
         await verify({ page, server, failures, requests });
