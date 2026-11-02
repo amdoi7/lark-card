@@ -104,19 +104,50 @@ async function renderSimulator(page: Page, url: string, project: CardProject, { 
   return { png, renderer: 'simulator', compiled: result.compiled!, warnings: [...conversionWarnings(project.card, result.exported), ...resourceWarnings(result.compiled!), ...diagnosticWarnings(diagnostics)] };
 }
 
-export async function render(project: CardProject, options: RenderOptions = {}): Promise<RenderResult> {
+export type RenderSession = {
+  render(project: CardProject, platform: 'pc' | 'ios'): Promise<RenderResult>;
+  close(): Promise<void>;
+};
+
+/** One preview server, browser and context for many renders; each render gets a fresh page so editor state never leaks between cards. */
+export async function openRenderSession(options: RenderOptions = {}): Promise<RenderSession> {
   const renderer = options.renderer ?? 'simulator';
-  const settings: RenderSettings = { locale: options.locale ?? 'zh_cn', platform: options.platform ?? 'pc', theme: options.theme ?? 'light' };
+  const base = { locale: options.locale ?? 'zh_cn', theme: options.theme ?? 'light' } as const;
   const server = await startPreviewServer({ port: 0, renderer, webcontent: options.webcontent });
+  let browser;
   try {
-    const browser = await chromium.launch({ headless: true, executablePath: options.chrome });
-    try {
-      const page = await browser.newPage({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 1 });
-      return await (renderer === 'client' ? renderClient : renderSimulator)(page, server.url, project, settings);
-    } finally {
-      await browser.close();
-    }
-  } finally {
+    // Playwright's own signal handlers attempt a graceful close that can hang mid-render, so a killed
+    // batch never exits. Exit directly instead: Playwright's 'exit' hook still kills Chromium.
+    browser = await chromium.launch({ headless: true, executablePath: options.chrome, handleSIGINT: false, handleSIGTERM: false, handleSIGHUP: false });
+  } catch (error) {
     await server.close();
+    throw error;
+  }
+  const signals = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const;
+  const exitOnSignal = (signal: NodeJS.Signals) => process.exit(128 + (signal === 'SIGINT' ? 2 : signal === 'SIGTERM' ? 15 : 1));
+  for (const signal of signals) process.once(signal, exitOnSignal);
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, deviceScaleFactor: 1 });
+  return {
+    async render(project, platform) {
+      const page = await context.newPage();
+      try {
+        return await (renderer === 'client' ? renderClient : renderSimulator)(page, server.url, project, { ...base, platform });
+      } finally {
+        await page.close();
+      }
+    },
+    async close() {
+      for (const signal of signals) process.off(signal, exitOnSignal);
+      try { await browser.close(); } finally { await server.close(); }
+    },
+  };
+}
+
+export async function render(project: CardProject, options: RenderOptions = {}): Promise<RenderResult> {
+  const session = await openRenderSession(options);
+  try {
+    return await session.render(project, options.platform ?? 'pc');
+  } finally {
+    await session.close();
   }
 }

@@ -1,9 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { link, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { parseCard } from './card/input.ts';
+import { parseCard, type CardProject } from './card/input.ts';
 import { asCardError, CardError, type ErrorCode } from './errors.ts';
-import { render, type RenderOptions } from './preview/render.ts';
+import { openRenderSession, type RenderOptions } from './preview/render.ts';
 
 type BatchResult = {
   input: string;
@@ -40,19 +40,25 @@ export async function renderBatch(inputs: string[], directory: string, options: 
     if ((error as NodeJS.ErrnoException).code === 'EEXIST') throw new CardError('batch_output_exists', `Batch manifest already exists: ${manifestPath}`);
     throw error;
   }
-  for (const result of results) {
-    try {
-      const card = parseCard(await readFile(result.input, 'utf8'));
-      const preview = await render({ card }, { ...options, platform: result.platform });
-      result.warnings = [...preview.compiled.warnings, ...preview.warnings];
-      await writeFile(result.output, preview.png, { flag: 'wx' });
-      result.status = 'ok';
-    } catch (error) {
-      const failure = asCardError(error, 'render_failed');
-      result.status = 'error';
-      result.error = { code: failure.code, message: failure.message };
+  const session = await openRenderSession(options);
+  const parsed = new Map<string, Promise<CardProject>>();
+  try {
+    for (const result of results) {
+      try {
+        if (!parsed.has(result.input)) parsed.set(result.input, readFile(result.input, 'utf8').then(text => ({ card: parseCard(text) })));
+        const preview = await session.render(await parsed.get(result.input)!, result.platform);
+        result.warnings = [...preview.compiled.warnings, ...preview.warnings];
+        await writeFile(result.output, preview.png, { flag: 'wx' });
+        result.status = 'ok';
+      } catch (error) {
+        const failure = asCardError(error, 'render_failed');
+        result.status = 'error';
+        result.error = { code: failure.code, message: failure.message };
+      }
+      await writeManifest('replace');
     }
-    await writeManifest('replace');
+  } finally {
+    await session.close();
   }
   return manifest;
 }
