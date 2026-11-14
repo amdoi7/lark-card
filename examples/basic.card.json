@@ -1,0 +1,15 @@
+{
+  "schema": "2.0",
+  "header": {
+    "template": "blue",
+    "title": { "tag": "plain_text", "content": "原厂本地预览" }
+  },
+  "body": {
+    "elements": [
+      { "tag": "markdown", "content": "这段内容由飞书原厂 CardRender 绘制。" },
+      { "tag": "hr" },
+      { "tag": "input", "name": "note", "placeholder": { "tag": "plain_text", "content": "输入备注" } },
+      { "tag": "button", "name": "confirm", "type": "primary_filled", "text": { "tag": "plain_text", "content": "确认" }, "value": { "action": "local_preview" } }
+    ]
+  }
+}

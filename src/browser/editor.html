@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>本地 CardKit · 原厂编辑器</title>
+  <!--EDITOR_STYLES-->
+  <style>
+    html,body{height:100%;margin:0}body{display:flex;flex-direction:column;font:13px/1.5 system-ui,sans-serif;color:#1f2329}
+    #local-toolbar{display:flex;gap:8px;align-items:center;padding:10px 16px;border-bottom:1px solid #dee0e3;flex-wrap:wrap;background:white}
+    #local-toolbar button,#local-toolbar select{font:inherit;padding:4px 9px}#local-status{margin-left:auto;max-width:45%;white-space:pre-wrap}#local-status[data-state=error]{color:#c52a24}
+    #root{flex:1;min-height:0}.designer-layout{height:100%}.local-source{border-top:1px solid #dee0e3;background:white}.local-source summary{padding:5px 16px;cursor:pointer}
+    .source-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 16px}.source-grid textarea{box-sizing:border-box;width:100%;height:190px;font:12px/1.5 ui-monospace,monospace;resize:vertical}
+    #diagnostics{max-height:140px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;padding:8px 16px;font-size:11px}
+  </style>
+</head>
+<body>
+  <header id="local-toolbar">
+    <strong>本地 CardKit</strong>
+    <select id="card-example" aria-label="示例" disabled><option value="/examples/project-assistant.card.json">项目小助理 V2</option><option value="/examples/project-assistant-legacy.card.json">项目小助理 V1</option><option value="/examples/basic.card.json">基础组件 V2</option></select>
+    <button id="load-example" disabled>载入示例</button><button id="import-card" disabled>导入 JSON / 本地工程</button><input id="file-input" type="file" accept=".json,.card,application/json" hidden>
+    <button id="save-project" disabled>保存本地工程</button><button id="export-card" disabled>导出 Card JSON</button><button id="export-vr" disabled>导出 VR</button>
+    <button id="migrate-card" disabled>V1 → V2</button><label><input id="allow-shared" type="checkbox">允许迁移为共享卡片</label>
+    <label>卡片语言 <select id="card-locale" disabled></select></label>
+    <a id="client-preview" href="/preview" target="_blank" rel="noopener" hidden>客户端 renderer 预览</a>
+    <span id="local-status" role="status" data-state="loading">加载原厂编辑 SDK…</span>
+  </header>
+  <div id="root"></div>
+  <details class="local-source" id="source-panel"><summary>卡片源代码 / 自动编译 VR</summary><div class="source-grid"><section><label for="card-source">官方 Card JSON</label><textarea id="card-source" spellcheck="false"></textarea><button id="apply-source" disabled>应用源码到编辑器</button></section><section><label for="vr-source">VR 编译产物（只读）</label><textarea id="vr-source" readonly></textarea></section></div></details>
+  <details class="local-source"><summary>宿主能力与诊断（本地模式不发布、不访问真实通讯录）</summary><pre id="diagnostics"></pre></details>
+  <script type="module" src="/browser/editor.ts"></script>
+</body>
+</html>
